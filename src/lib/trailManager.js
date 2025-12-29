@@ -8,6 +8,8 @@ export class TrailManager {
     this.points = [];
     this.currentStrokeId = 0;
     this.lifetimeMs = lifetimeMs;
+    this.lastPoint = null;
+    this.lastPointTime = null;
   }
 
   /**
@@ -15,20 +17,72 @@ export class TrailManager {
    */
   startNewStroke() {
     this.currentStrokeId++;
+    this.lastPoint = null;
+    this.lastPointTime = null;
   }
 
   /**
-   * Add a new point to the trail
+   * Calculate speed based on distance and time from last point
+   * @param {number} x - X coordinate
+   * @param {number} y - Y coordinate
+   * @returns {number} Speed in pixels per millisecond
+   */
+  calculateSpeed(x, y) {
+    if (!this.lastPoint || !this.lastPointTime) {
+      return 0;
+    }
+
+    const now = Date.now();
+    const timeDiff = now - this.lastPointTime;
+
+    if (timeDiff === 0) {
+      return 0;
+    }
+
+    const dx = x - this.lastPoint.x;
+    const dy = y - this.lastPoint.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    // Speed in pixels per millisecond
+    return distance / timeDiff;
+  }
+
+  /**
+   * Add a new drawing point to the trail
    * @param {number} x - X coordinate
    * @param {number} y - Y coordinate
    * @param {number} pressure - Pressure value (default 1.0, for future use)
    */
   addPoint(x, y, pressure = 1.0) {
+    const speed = this.calculateSpeed(x, y);
+
     this.points.push({
+      type: 'draw',
       x,
       y,
       timestamp: Date.now(),
       pressure,
+      strokeId: this.currentStrokeId,
+      speed
+    });
+
+    this.lastPoint = { x, y };
+    this.lastPointTime = Date.now();
+  }
+
+  /**
+   * Add a text character to the trail
+   * @param {number} x - X coordinate
+   * @param {number} y - Y coordinate
+   * @param {string} char - Character to display
+   */
+  addText(x, y, char) {
+    this.points.push({
+      type: 'text',
+      x,
+      y,
+      char,
+      timestamp: Date.now(),
       strokeId: this.currentStrokeId
     });
   }

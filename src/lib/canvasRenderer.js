@@ -13,10 +13,36 @@ export function clearCanvas(ctx, width, height) {
 }
 
 /**
- * Draw trail - can be dots or connected lines per stroke
+ * Calculate stroke width based on speed
+ * @param {number} speed - Speed in pixels per millisecond
+ * @param {Object} speedSettings - Speed settings {enabled, minWidth, maxWidth, sensitivity}
+ * @param {number} baseWidth - Base stroke width
+ * @returns {number} Calculated stroke width
+ */
+function calculateStrokeWidth(speed, speedSettings, baseWidth) {
+  if (!speedSettings.enabled) {
+    return baseWidth;
+  }
+
+  // Convert speed (px/ms) to a more usable scale
+  // Typical speeds: slow = 0.1-0.5, medium = 0.5-2, fast = 2-10
+  const speedScale = speed * speedSettings.sensitivity;
+
+  // Map speed to width (inversely): slow = thick, fast = thin
+  // Using exponential decay for smoother feel
+  const speedFactor = Math.exp(-speedScale);
+
+  const width = speedSettings.minWidth +
+    (speedSettings.maxWidth - speedSettings.minWidth) * speedFactor;
+
+  return Math.max(speedSettings.minWidth, Math.min(speedSettings.maxWidth, width));
+}
+
+/**
+ * Draw trail - can be dots or connected lines per stroke, includes text
  * @param {CanvasRenderingContext2D} ctx - Canvas context
- * @param {Array} points - Array of points with {x, y, timestamp, strokeId}
- * @param {Object} settings - Drawing settings {strokeWidth, color, drawStyle}
+ * @param {Array} points - Array of points with {x, y, timestamp, strokeId, type}
+ * @param {Object} settings - Drawing settings
  */
 export function drawTrail(ctx, points, settings = {}) {
   if (points.length === 0) return;
@@ -24,26 +50,36 @@ export function drawTrail(ctx, points, settings = {}) {
   const {
     strokeWidth = 4,
     color = '#ffffff',
-    drawStyle = 'line' // 'line' or 'dots'
+    drawStyle = 'line',
+    speedSettings = { enabled: false, minWidth: 1, maxWidth: 20, sensitivity: 1 },
+    fontSize = 24
   } = settings;
 
-  // Group points by stroke ID so we don't connect separate strokes
-  const strokes = groupPointsByStroke(points);
+  // Separate draw points and text points
+  const drawPoints = points.filter(p => p.type === 'draw');
+  const textPoints = points.filter(p => p.type === 'text');
 
-  // Set up canvas styling
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  ctx.lineWidth = strokeWidth;
-  ctx.strokeStyle = color;
-  ctx.fillStyle = color;
+  // Draw strokes
+  if (drawPoints.length > 0) {
+    const strokes = groupPointsByStroke(drawPoints);
 
-  // Draw each stroke separately
-  for (const stroke of strokes) {
-    if (drawStyle === 'dots') {
-      drawDots(ctx, stroke, strokeWidth);
-    } else {
-      drawStroke(ctx, stroke);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+
+    for (const stroke of strokes) {
+      if (drawStyle === 'dots') {
+        drawDots(ctx, stroke, strokeWidth, speedSettings);
+      } else {
+        drawStroke(ctx, stroke, strokeWidth, speedSettings);
+      }
     }
+  }
+
+  // Draw text
+  if (textPoints.length > 0) {
+    drawText(ctx, textPoints, color, fontSize);
   }
 }
 
@@ -74,15 +110,17 @@ function groupPointsByStroke(points) {
 }
 
 /**
- * Draw points as individual dots
+ * Draw points as individual dots with speed-based sizing
  * @param {CanvasRenderingContext2D} ctx - Canvas context
  * @param {Array} points - Array of points in this stroke
- * @param {number} strokeWidth - Width/radius of dots
+ * @param {number} baseWidth - Base stroke width
+ * @param {Object} speedSettings - Speed settings
  */
-function drawDots(ctx, points, strokeWidth) {
-  const radius = strokeWidth / 2;
-
+function drawDots(ctx, points, baseWidth, speedSettings) {
   for (const point of points) {
+    const width = calculateStrokeWidth(point.speed || 0, speedSettings, baseWidth);
+    const radius = width / 2;
+
     ctx.beginPath();
     ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
     ctx.fill();
@@ -90,46 +128,101 @@ function drawDots(ctx, points, strokeWidth) {
 }
 
 /**
- * Draw a stroke (connected line through points)
+ * Draw a stroke (connected line through points) with variable width
  * @param {CanvasRenderingContext2D} ctx - Canvas context
  * @param {Array} points - Array of points in this stroke
+ * @param {number} baseWidth - Base stroke width
+ * @param {Object} speedSettings - Speed settings
  */
-function drawStroke(ctx, points) {
+function drawStroke(ctx, points, baseWidth, speedSettings) {
   if (points.length === 0) return;
-
-  ctx.beginPath();
 
   if (points.length === 1) {
     // Single point - draw a small circle
     const p = points[0];
-    ctx.arc(p.x, p.y, ctx.lineWidth / 2, 0, Math.PI * 2);
+    const width = calculateStrokeWidth(p.speed || 0, speedSettings, baseWidth);
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, width / 2, 0, Math.PI * 2);
     ctx.fill();
     return;
   }
 
-  if (points.length === 2) {
-    // Two points - draw a straight line
-    ctx.moveTo(points[0].x, points[0].y);
-    ctx.lineTo(points[1].x, points[1].y);
-    ctx.stroke();
-    return;
+  // For speed-based width, we need to draw segments with varying widths
+  if (speedSettings.enabled) {
+    drawVariableWidthStroke(ctx, points, baseWidth, speedSettings);
+  } else {
+    // Fixed width stroke
+    ctx.lineWidth = baseWidth;
+    drawFixedWidthStroke(ctx, points);
   }
+}
 
-  // For three or more points, draw smooth quadratic curves
+/**
+ * Draw fixed width stroke
+ * @param {CanvasRenderingContext2D} ctx - Canvas context
+ * @param {Array} points - Array of points
+ */
+function drawFixedWidthStroke(ctx, points) {
+  ctx.beginPath();
   ctx.moveTo(points[0].x, points[0].y);
 
-  for (let i = 1; i < points.length - 1; i++) {
-    const current = points[i];
-    const next = points[i + 1];
-    const midX = (current.x + next.x) / 2;
-    const midY = (current.y + next.y) / 2;
-    ctx.quadraticCurveTo(current.x, current.y, midX, midY);
+  if (points.length === 2) {
+    ctx.lineTo(points[1].x, points[1].y);
+  } else {
+    for (let i = 1; i < points.length - 1; i++) {
+      const current = points[i];
+      const next = points[i + 1];
+      const midX = (current.x + next.x) / 2;
+      const midY = (current.y + next.y) / 2;
+      ctx.quadraticCurveTo(current.x, current.y, midX, midY);
+    }
+    const last = points[points.length - 1];
+    ctx.lineTo(last.x, last.y);
   }
 
-  // Draw to the last point
-  const last = points[points.length - 1];
-  ctx.lineTo(last.x, last.y);
   ctx.stroke();
+}
+
+/**
+ * Draw variable width stroke (speed-dependent)
+ * @param {CanvasRenderingContext2D} ctx - Canvas context
+ * @param {Array} points - Array of points
+ * @param {number} baseWidth - Base stroke width
+ * @param {Object} speedSettings - Speed settings
+ */
+function drawVariableWidthStroke(ctx, points, baseWidth, speedSettings) {
+  // Draw each segment with its own width
+  for (let i = 0; i < points.length - 1; i++) {
+    const current = points[i];
+    const next = points[i + 1];
+
+    // Use average speed for this segment
+    const avgSpeed = ((current.speed || 0) + (next.speed || 0)) / 2;
+    const width = calculateStrokeWidth(avgSpeed, speedSettings, baseWidth);
+
+    ctx.lineWidth = width;
+    ctx.beginPath();
+    ctx.moveTo(current.x, current.y);
+    ctx.lineTo(next.x, next.y);
+    ctx.stroke();
+  }
+}
+
+/**
+ * Draw text characters
+ * @param {CanvasRenderingContext2D} ctx - Canvas context
+ * @param {Array} textPoints - Array of text points
+ * @param {string} color - Text color
+ * @param {number} fontSize - Font size
+ */
+function drawText(ctx, textPoints, color, fontSize) {
+  ctx.fillStyle = color;
+  ctx.font = `${fontSize}px sans-serif`;
+  ctx.textBaseline = 'middle';
+
+  for (const point of textPoints) {
+    ctx.fillText(point.char, point.x, point.y);
+  }
 }
 
 /**

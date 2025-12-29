@@ -6,7 +6,14 @@
     lifetimeMs: 15000,
     strokeWidth: 4,
     color: '#ffffff',
-    drawStyle: 'line'
+    drawStyle: 'line',
+    speedSettings: {
+      enabled: false,
+      minWidth: 1,
+      maxWidth: 20,
+      sensitivity: 1
+    },
+    fontSize: 24
   };
 
   function handleSettingsUpdate(event) {

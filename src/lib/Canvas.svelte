@@ -15,6 +15,9 @@
   let trailManager;
   let animationFrameId;
   let isDrawing = false;
+  let cursorPosition = { x: 0, y: 0 };
+  let isCanvasHovered = false;
+  let textOffsetX = 0; // Track horizontal position for text
 
   // Update trail manager when settings change
   $: if (trailManager) {
@@ -33,6 +36,9 @@
 
     // Handle window resize
     window.addEventListener('resize', resizeCanvas);
+
+    // Handle keyboard events
+    window.addEventListener('keydown', handleKeyDown);
   });
 
   onDestroy(() => {
@@ -41,6 +47,7 @@
       cancelAnimationFrame(animationFrameId);
     }
     window.removeEventListener('resize', resizeCanvas);
+    window.removeEventListener('keydown', handleKeyDown);
   });
 
   function resizeCanvas() {
@@ -65,7 +72,9 @@
       drawTrail(ctx, points, {
         strokeWidth: settings.strokeWidth,
         color: settings.color,
-        drawStyle: settings.drawStyle
+        drawStyle: settings.drawStyle,
+        speedSettings: settings.speedSettings || { enabled: false },
+        fontSize: settings.fontSize || 24
       });
 
       // Continue loop
@@ -73,6 +82,38 @@
     }
 
     animate();
+  }
+
+  // Keyboard event handler
+  function handleKeyDown(e) {
+    // Only type when canvas is hovered (cursor is over canvas)
+    if (!isCanvasHovered) return;
+
+    // Ignore modifier keys and special keys
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.key.length > 1 && e.key !== 'Enter' && e.key !== 'Backspace') return;
+
+    e.preventDefault();
+
+    if (e.key === 'Enter') {
+      // New line - move down and reset horizontal position
+      cursorPosition.y += settings.fontSize || 24;
+      textOffsetX = 0;
+      return;
+    }
+
+    if (e.key === 'Backspace') {
+      // For backspace, we could track and remove last character
+      // For now, just move back
+      textOffsetX -= (settings.fontSize || 24) * 0.6;
+      if (textOffsetX < 0) textOffsetX = 0;
+      return;
+    }
+
+    // Add character at cursor position
+    const charWidth = (settings.fontSize || 24) * 0.6; // Approximate character width
+    trailManager.addText(cursorPosition.x + textOffsetX, cursorPosition.y, e.key);
+    textOffsetX += charWidth;
   }
 
   // Mouse events (for desktop testing)
@@ -86,14 +127,29 @@
   }
 
   function handleMouseMove(e) {
-    if (!isDrawing) return;
     const rect = canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
-    trailManager.addPoint(x, y);
+
+    // Always update cursor position for text typing
+    cursorPosition = { x, y };
+
+    // If drawing, add point
+    if (isDrawing) {
+      trailManager.addPoint(x, y);
+    }
   }
 
   function handleMouseUp() {
+    isDrawing = false;
+  }
+
+  function handleMouseEnter() {
+    isCanvasHovered = true;
+  }
+
+  function handleMouseLeave() {
+    isCanvasHovered = false;
     isDrawing = false;
   }
 
@@ -130,7 +186,8 @@
   on:mousedown={handleMouseDown}
   on:mousemove={handleMouseMove}
   on:mouseup={handleMouseUp}
-  on:mouseleave={handleMouseUp}
+  on:mouseenter={handleMouseEnter}
+  on:mouseleave={handleMouseLeave}
   on:touchstart={handleTouchStart}
   on:touchmove={handleTouchMove}
   on:touchend={handleTouchEnd}

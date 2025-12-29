@@ -5,7 +5,14 @@
     lifetimeMs: 15000,
     strokeWidth: 4,
     color: '#ffffff',
-    drawStyle: 'line'
+    drawStyle: 'line',
+    speedSettings: {
+      enabled: false,
+      minWidth: 1,
+      maxWidth: 20,
+      sensitivity: 1
+    },
+    fontSize: 24
   };
 
   const dispatch = createEventDispatcher();
@@ -80,6 +87,75 @@
         </label>
       </div>
 
+      <div class="control">
+        <label>
+          <input
+            type="checkbox"
+            bind:checked={settings.speedSettings.enabled}
+            on:change={updateSettings}
+          />
+          Speed-Based Width
+        </label>
+      </div>
+
+      {#if settings.speedSettings.enabled}
+        <div class="control indent">
+          <label>
+            Min Width: {settings.speedSettings.minWidth}px
+            <input
+              type="range"
+              min="1"
+              max="20"
+              step="1"
+              bind:value={settings.speedSettings.minWidth}
+              on:input={updateSettings}
+            />
+          </label>
+        </div>
+
+        <div class="control indent">
+          <label>
+            Max Width: {settings.speedSettings.maxWidth}px
+            <input
+              type="range"
+              min="1"
+              max="40"
+              step="1"
+              bind:value={settings.speedSettings.maxWidth}
+              on:input={updateSettings}
+            />
+          </label>
+        </div>
+
+        <div class="control indent">
+          <label>
+            Sensitivity: {settings.speedSettings.sensitivity.toFixed(1)}
+            <input
+              type="range"
+              min="0.1"
+              max="5"
+              step="0.1"
+              bind:value={settings.speedSettings.sensitivity}
+              on:input={updateSettings}
+            />
+          </label>
+        </div>
+      {/if}
+
+      <div class="control">
+        <label>
+          Text Size: {settings.fontSize}px
+          <input
+            type="range"
+            min="12"
+            max="72"
+            step="2"
+            bind:value={settings.fontSize}
+            on:input={updateSettings}
+          />
+        </label>
+      </div>
+
       <div class="values-display">
         <h3>Current Values:</h3>
         <pre>{JSON.stringify(settings, null, 2)}</pre>
@@ -148,11 +224,24 @@
     margin-bottom: 20px;
   }
 
+  .control.indent {
+    margin-left: 20px;
+    margin-bottom: 15px;
+  }
+
   label {
     display: block;
     font-size: 0.9rem;
     margin-bottom: 8px;
     opacity: 0.9;
+  }
+
+  input[type="checkbox"] {
+    margin-right: 8px;
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: white;
   }
 
   input[type="range"] {
