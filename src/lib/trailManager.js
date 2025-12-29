@@ -1,13 +1,20 @@
 /**
  * Trail Manager - Manages drawing points with timestamps
- * Points older than 15 seconds are automatically cleaned up
+ * Points older than configured lifetime are automatically cleaned up
  */
 
-const TRAIL_LIFETIME_MS = 15000; // 15 seconds
-
 export class TrailManager {
-  constructor() {
+  constructor(lifetimeMs = 15000) {
     this.points = [];
+    this.currentStrokeId = 0;
+    this.lifetimeMs = lifetimeMs;
+  }
+
+  /**
+   * Start a new stroke (don't connect to previous lines)
+   */
+  startNewStroke() {
+    this.currentStrokeId++;
   }
 
   /**
@@ -21,29 +28,38 @@ export class TrailManager {
       x,
       y,
       timestamp: Date.now(),
-      pressure
+      pressure,
+      strokeId: this.currentStrokeId
     });
   }
 
   /**
-   * Get all points that are still active (less than 15 seconds old)
+   * Set the trail lifetime in milliseconds
+   * @param {number} ms - Lifetime in milliseconds
+   */
+  setLifetime(ms) {
+    this.lifetimeMs = ms;
+  }
+
+  /**
+   * Get all points that are still active (within lifetime)
    * @returns {Array} Array of active points
    */
   getActivePoints() {
     const now = Date.now();
-    const cutoffTime = now - TRAIL_LIFETIME_MS;
+    const cutoffTime = now - this.lifetimeMs;
 
     // Filter points that are still within the lifetime
     return this.points.filter(point => point.timestamp > cutoffTime);
   }
 
   /**
-   * Remove points older than 15 seconds
+   * Remove points older than lifetime
    * Call this periodically to prevent memory buildup
    */
   cleanup() {
     const now = Date.now();
-    const cutoffTime = now - TRAIL_LIFETIME_MS;
+    const cutoffTime = now - this.lifetimeMs;
 
     // Keep only points that are newer than the cutoff time
     this.points = this.points.filter(point => point.timestamp > cutoffTime);

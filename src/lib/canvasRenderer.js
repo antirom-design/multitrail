@@ -1,11 +1,6 @@
 /**
- * Canvas Renderer - Handles drawing trails with smooth curves and fade effects
+ * Canvas Renderer - Handles drawing trails as dots or strokes
  */
-
-const TRAIL_LIFETIME_MS = 15000; // 15 seconds
-const FADE_START_MS = 13000; // Start fading at 13 seconds
-const STROKE_WIDTH = 4;
-const STROKE_COLOR = 'white';
 
 /**
  * Clear the entire canvas
@@ -18,136 +13,123 @@ export function clearCanvas(ctx, width, height) {
 }
 
 /**
- * Calculate alpha value based on point age
- * Points fade from alpha 1.0 to 0.0 between 13-15 seconds
- * @param {number} timestamp - Point timestamp
- * @returns {number} Alpha value between 0 and 1
- */
-export function calculateAlpha(timestamp) {
-  const age = Date.now() - timestamp;
-
-  if (age < FADE_START_MS) {
-    return 1.0; // Full opacity
-  }
-
-  if (age >= TRAIL_LIFETIME_MS) {
-    return 0.0; // Fully transparent (should be filtered out)
-  }
-
-  // Linear fade from 1.0 to 0.0 over the last 2 seconds
-  const fadeProgress = (age - FADE_START_MS) / (TRAIL_LIFETIME_MS - FADE_START_MS);
-  return 1.0 - fadeProgress;
-}
-
-/**
- * Draw smooth trail through points using quadratic curves
+ * Draw trail - can be dots or connected lines per stroke
  * @param {CanvasRenderingContext2D} ctx - Canvas context
- * @param {Array} points - Array of points with {x, y, timestamp}
+ * @param {Array} points - Array of points with {x, y, timestamp, strokeId}
+ * @param {Object} settings - Drawing settings {strokeWidth, color, drawStyle}
  */
-export function drawTrail(ctx, points) {
+export function drawTrail(ctx, points, settings = {}) {
   if (points.length === 0) return;
+
+  const {
+    strokeWidth = 4,
+    color = '#ffffff',
+    drawStyle = 'line' // 'line' or 'dots'
+  } = settings;
+
+  // Group points by stroke ID so we don't connect separate strokes
+  const strokes = groupPointsByStroke(points);
 
   // Set up canvas styling
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
-  ctx.lineWidth = STROKE_WIDTH;
+  ctx.lineWidth = strokeWidth;
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
 
-  // Group points by similar age for efficient alpha rendering
-  // This reduces the number of path operations needed
-  const pointsByAlpha = groupPointsByAlpha(points);
-
-  // Draw each alpha group
-  for (const group of pointsByAlpha) {
-    const alpha = group.alpha;
-    if (alpha <= 0) continue;
-
-    ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
-    ctx.beginPath();
-
-    // Draw smooth curves through the group's points
-    drawSmoothCurve(ctx, group.points);
-
-    ctx.stroke();
+  // Draw each stroke separately
+  for (const stroke of strokes) {
+    if (drawStyle === 'dots') {
+      drawDots(ctx, stroke, strokeWidth);
+    } else {
+      drawStroke(ctx, stroke);
+    }
   }
 }
 
 /**
- * Group consecutive points with similar alpha values
- * This optimizes rendering by reducing the number of separate paths
+ * Group points by stroke ID
  * @param {Array} points - Array of points
- * @returns {Array} Array of {alpha, points} groups
+ * @returns {Array} Array of stroke arrays
  */
-function groupPointsByAlpha(points) {
+function groupPointsByStroke(points) {
   if (points.length === 0) return [];
 
-  const groups = [];
-  let currentGroup = {
-    alpha: calculateAlpha(points[0].timestamp),
-    points: [points[0]]
-  };
+  const strokes = [];
+  let currentStroke = [points[0]];
+  let currentStrokeId = points[0].strokeId;
 
   for (let i = 1; i < points.length; i++) {
-    const alpha = calculateAlpha(points[i].timestamp);
-    const alphaDiff = Math.abs(alpha - currentGroup.alpha);
-
-    // If alpha difference is small, add to current group
-    // Otherwise, start a new group
-    if (alphaDiff < 0.1) {
-      currentGroup.points.push(points[i]);
-      currentGroup.alpha = (currentGroup.alpha + alpha) / 2; // Average alpha
+    if (points[i].strokeId === currentStrokeId) {
+      currentStroke.push(points[i]);
     } else {
-      groups.push(currentGroup);
-      currentGroup = {
-        alpha: alpha,
-        points: [points[i]]
-      };
+      strokes.push(currentStroke);
+      currentStroke = [points[i]];
+      currentStrokeId = points[i].strokeId;
     }
   }
 
-  groups.push(currentGroup);
-  return groups;
+  strokes.push(currentStroke);
+  return strokes;
 }
 
 /**
- * Draw a smooth curve through points using quadratic Bezier curves
+ * Draw points as individual dots
  * @param {CanvasRenderingContext2D} ctx - Canvas context
- * @param {Array} points - Array of points
+ * @param {Array} points - Array of points in this stroke
+ * @param {number} strokeWidth - Width/radius of dots
  */
-function drawSmoothCurve(ctx, points) {
+function drawDots(ctx, points, strokeWidth) {
+  const radius = strokeWidth / 2;
+
+  for (const point of points) {
+    ctx.beginPath();
+    ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+/**
+ * Draw a stroke (connected line through points)
+ * @param {CanvasRenderingContext2D} ctx - Canvas context
+ * @param {Array} points - Array of points in this stroke
+ */
+function drawStroke(ctx, points) {
   if (points.length === 0) return;
+
+  ctx.beginPath();
 
   if (points.length === 1) {
     // Single point - draw a small circle
     const p = points[0];
-    ctx.moveTo(p.x, p.y);
-    ctx.lineTo(p.x + 0.1, p.y + 0.1);
+    ctx.arc(p.x, p.y, ctx.lineWidth / 2, 0, Math.PI * 2);
+    ctx.fill();
     return;
   }
 
-  // Start at the first point
-  ctx.moveTo(points[0].x, points[0].y);
-
   if (points.length === 2) {
     // Two points - draw a straight line
+    ctx.moveTo(points[0].x, points[0].y);
     ctx.lineTo(points[1].x, points[1].y);
+    ctx.stroke();
     return;
   }
 
   // For three or more points, draw smooth quadratic curves
-  // The control point for each curve is the current point,
-  // and we draw to the midpoint between current and next
+  ctx.moveTo(points[0].x, points[0].y);
+
   for (let i = 1; i < points.length - 1; i++) {
     const current = points[i];
     const next = points[i + 1];
     const midX = (current.x + next.x) / 2;
     const midY = (current.y + next.y) / 2;
-
     ctx.quadraticCurveTo(current.x, current.y, midX, midY);
   }
 
-  // Draw line to the last point
+  // Draw to the last point
   const last = points[points.length - 1];
   ctx.lineTo(last.x, last.y);
+  ctx.stroke();
 }
 
 /**
