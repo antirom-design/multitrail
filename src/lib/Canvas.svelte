@@ -18,6 +18,7 @@
   let cursorPosition = { x: 0, y: 0 };
   let isCanvasHovered = false;
   let textOffsetX = 0; // Track horizontal position for text
+  let lastTypingPosition = { x: 0, y: 0 }; // Track where we started typing
 
   // Update trail manager when settings change
   $: if (trailManager) {
@@ -95,24 +96,36 @@
 
     e.preventDefault();
 
+    // Check if cursor has moved to a new position (reset typing position)
+    const moveThreshold = 20; // pixels
+    const dx = cursorPosition.x - lastTypingPosition.x;
+    const dy = cursorPosition.y - lastTypingPosition.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    if (distance > moveThreshold) {
+      // Cursor moved - start new typing position
+      textOffsetX = 0;
+      lastTypingPosition = { ...cursorPosition };
+    }
+
     if (e.key === 'Enter') {
       // New line - move down and reset horizontal position
-      cursorPosition.y += settings.fontSize || 24;
+      lastTypingPosition.y += settings.fontSize || 24;
+      cursorPosition.y = lastTypingPosition.y;
       textOffsetX = 0;
       return;
     }
 
     if (e.key === 'Backspace') {
-      // For backspace, we could track and remove last character
-      // For now, just move back
+      // Move back
       textOffsetX -= (settings.fontSize || 24) * 0.6;
       if (textOffsetX < 0) textOffsetX = 0;
       return;
     }
 
-    // Add character at cursor position
+    // Add character at the last typing position + offset
     const charWidth = (settings.fontSize || 24) * 0.6; // Approximate character width
-    trailManager.addText(cursorPosition.x + textOffsetX, cursorPosition.y, e.key);
+    trailManager.addText(lastTypingPosition.x + textOffsetX, lastTypingPosition.y, e.key);
     textOffsetX += charWidth;
   }
 
