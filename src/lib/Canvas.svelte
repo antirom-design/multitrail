@@ -1,7 +1,9 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
   import { TrailManager } from './trailManager.js';
-  import { clearCanvas, drawTrail, setupHighDPICanvas } from './canvasRenderer.js';
+  import { RemoteTrailsManager } from './remoteTrailsManager.js';
+  import { RemoteCursorsManager } from './remoteCursors.js';
+  import { clearCanvas, drawTrail, drawRemoteCursor, setupHighDPICanvas } from './canvasRenderer.js';
 
   export let settings = {
     lifetimeMs: 15000,
@@ -9,6 +11,9 @@
     color: '#ffffff',
     drawStyle: 'line'
   };
+
+  export let websocket = null;
+  export let isMultiplayerMode = false;
 
   let canvas;
   let ctx;
@@ -20,6 +25,15 @@
   let textOffsetX = 0; // Track horizontal position for text
   let lastTypingPosition = { x: 0, y: 0 }; // Track where we started typing
 
+  // Multiplayer managers
+  let remoteTrailsManager = null;
+  let remoteCursorsManager = null;
+
+  // Point buffering for multiplayer
+  let pointBuffer = [];
+  let pointBatchTimeout = null;
+  let lastCursorEmit = 0;
+
   // Update trail manager when settings change
   $: if (trailManager) {
     trailManager.setLifetime(settings.lifetimeMs);
@@ -28,6 +42,13 @@
   onMount(() => {
     // Initialize trail manager with initial lifetime
     trailManager = new TrailManager(settings.lifetimeMs);
+
+    // Initialize multiplayer managers if in multiplayer mode
+    if (isMultiplayerMode) {
+      remoteTrailsManager = new RemoteTrailsManager();
+      remoteCursorsManager = new RemoteCursorsManager();
+      setupMultiplayerListeners();
+    }
 
     // Set up canvas for high-DPI displays
     resizeCanvas();
@@ -47,8 +68,18 @@
     if (animationFrameId) {
       cancelAnimationFrame(animationFrameId);
     }
+    if (pointBatchTimeout) {
+      clearTimeout(pointBatchTimeout);
+    }
     window.removeEventListener('resize', resizeCanvas);
     window.removeEventListener('keydown', handleKeyDown);
+
+    // Clean up multiplayer listeners
+    if (isMultiplayerMode) {
+      window.removeEventListener('remoteDrawPoints', handleRemotePoints);
+      window.removeEventListener('remoteCursor', handleRemoteCursor);
+      window.removeEventListener('remoteSettings', handleRemoteSettings);
+    }
   });
 
   function resizeCanvas() {
@@ -65,11 +96,18 @@
       // Clean up old points
       trailManager.cleanup();
 
+      if (isMultiplayerMode && remoteTrailsManager && remoteCursorsManager) {
+        remoteTrailsManager.cleanup();
+        remoteCursorsManager.cleanup();
+      }
+
       // Get active points
       const points = trailManager.getActivePoints();
 
       // Clear and redraw
       clearCanvas(ctx, canvas.width, canvas.height);
+
+      // Draw local trails
       drawTrail(ctx, points, {
         strokeWidth: settings.strokeWidth,
         color: settings.color,
@@ -78,11 +116,80 @@
         fontSize: settings.fontSize || 24
       });
 
+      // Draw remote trails and cursors if in multiplayer mode
+      if (isMultiplayerMode && remoteTrailsManager && remoteCursorsManager) {
+        const remoteUsers = remoteTrailsManager.getAllActivePoints();
+        remoteUsers.forEach(({ points: userPoints, settings: userSettings }) => {
+          drawTrail(ctx, userPoints, {
+            strokeWidth: userSettings.strokeWidth,
+            color: userSettings.color,
+            drawStyle: userSettings.drawStyle,
+            speedSettings: { enabled: false }, // Disable speed for remote
+            fontSize: userSettings.fontSize || 24
+          });
+        });
+
+        // Draw remote cursors
+        const cursors = remoteCursorsManager.getActiveCursors();
+        cursors.forEach(cursor => {
+          drawRemoteCursor(ctx, cursor.x, cursor.y, cursor.userName);
+        });
+      }
+
       // Continue loop
       animationFrameId = requestAnimationFrame(animate);
     }
 
     animate();
+  }
+
+  // Multiplayer setup and handlers
+  function setupMultiplayerListeners() {
+    window.addEventListener('remoteDrawPoints', handleRemotePoints);
+    window.addEventListener('remoteCursor', handleRemoteCursor);
+    window.addEventListener('remoteSettings', handleRemoteSettings);
+  }
+
+  function handleRemotePoints(event) {
+    const { sessionId, userName, points } = event.detail;
+    if (remoteTrailsManager) {
+      remoteTrailsManager.addUser(sessionId, userName);
+      remoteTrailsManager.addPoints(sessionId, points);
+    }
+  }
+
+  function handleRemoteCursor(event) {
+    const { sessionId, userName, x, y } = event.detail;
+    if (remoteCursorsManager) {
+      remoteCursorsManager.updateCursor(sessionId, userName, x, y);
+    }
+  }
+
+  function handleRemoteSettings(event) {
+    const { sessionId, settings: userSettings } = event.detail;
+    if (remoteTrailsManager) {
+      remoteTrailsManager.updateSettings(sessionId, userSettings);
+    }
+  }
+
+  // Point buffering for multiplayer
+  function bufferPoint(point) {
+    pointBuffer.push(point);
+
+    // Send batch every 32ms (30 FPS) or when buffer reaches 10 points
+    if (pointBuffer.length >= 10) {
+      flushPointBuffer();
+    } else if (!pointBatchTimeout) {
+      pointBatchTimeout = setTimeout(flushPointBuffer, 32);
+    }
+  }
+
+  function flushPointBuffer() {
+    if (pointBuffer.length > 0 && websocket) {
+      websocket.sendPoints([...pointBuffer]);
+      pointBuffer = [];
+    }
+    pointBatchTimeout = null;
   }
 
   // Keyboard event handler
@@ -137,6 +244,13 @@
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
     trailManager.addPoint(x, y);
+
+    // Send stroke start and point to WebSocket if in multiplayer mode
+    if (isMultiplayerMode && websocket) {
+      websocket.sendStrokeStart(trailManager.currentStrokeId);
+      const lastPoint = trailManager.points[trailManager.points.length - 1];
+      bufferPoint(lastPoint);
+    }
   }
 
   function handleMouseMove(e) {
@@ -147,13 +261,34 @@
     // Always update cursor position for text typing
     cursorPosition = { x, y };
 
+    // Send cursor position if in multiplayer mode (throttled to 50ms)
+    if (isMultiplayerMode && websocket) {
+      const now = Date.now();
+      if (now - lastCursorEmit > 50) {
+        websocket.sendCursor(x, y);
+        lastCursorEmit = now;
+      }
+    }
+
     // If drawing, add point
     if (isDrawing) {
       trailManager.addPoint(x, y);
+
+      // Buffer point for multiplayer
+      if (isMultiplayerMode && websocket) {
+        const lastPoint = trailManager.points[trailManager.points.length - 1];
+        bufferPoint(lastPoint);
+      }
     }
   }
 
   function handleMouseUp() {
+    if (isDrawing && isMultiplayerMode && websocket) {
+      // Flush remaining buffered points
+      flushPointBuffer();
+      // Send stroke end
+      websocket.sendStrokeEnd(trailManager.currentStrokeId);
+    }
     isDrawing = false;
   }
 
@@ -176,6 +311,13 @@
     const x = touch.clientX - rect.left;
     const y = touch.clientY - rect.top;
     trailManager.addPoint(x, y);
+
+    // Send stroke start and point to WebSocket if in multiplayer mode
+    if (isMultiplayerMode && websocket) {
+      websocket.sendStrokeStart(trailManager.currentStrokeId);
+      const lastPoint = trailManager.points[trailManager.points.length - 1];
+      bufferPoint(lastPoint);
+    }
   }
 
   function handleTouchMove(e) {
@@ -186,10 +328,22 @@
     const x = touch.clientX - rect.left;
     const y = touch.clientY - rect.top;
     trailManager.addPoint(x, y);
+
+    // Buffer point for multiplayer
+    if (isMultiplayerMode && websocket) {
+      const lastPoint = trailManager.points[trailManager.points.length - 1];
+      bufferPoint(lastPoint);
+    }
   }
 
   function handleTouchEnd(e) {
     e.preventDefault();
+    if (isDrawing && isMultiplayerMode && websocket) {
+      // Flush remaining buffered points
+      flushPointBuffer();
+      // Send stroke end
+      websocket.sendStrokeEnd(trailManager.currentStrokeId);
+    }
     isDrawing = false;
   }
 </script>

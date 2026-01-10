@@ -257,3 +257,48 @@ export function setupHighDPICanvas(canvas, width, height) {
 
   return ctx;
 }
+
+/**
+ * Draw a remote cursor with username label
+ * @param {CanvasRenderingContext2D} ctx - Canvas context
+ * @param {number} x - X coordinate
+ * @param {number} y - Y coordinate
+ * @param {string} userName - Display name for the cursor
+ */
+export function drawRemoteCursor(ctx, x, y, userName) {
+  // Save current context state
+  ctx.save();
+
+  // Draw crosshair cursor
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+  ctx.lineWidth = 2;
+  ctx.lineCap = 'round';
+
+  ctx.beginPath();
+  // Horizontal line
+  ctx.moveTo(x - 10, y);
+  ctx.lineTo(x + 10, y);
+  // Vertical line
+  ctx.moveTo(x, y - 10);
+  ctx.lineTo(x, y + 10);
+  ctx.stroke();
+
+  // Draw username label
+  ctx.font = '14px sans-serif';
+  ctx.textBaseline = 'top';
+  const textWidth = ctx.measureText(userName).width;
+  const padding = 6;
+  const labelX = x + 15;
+  const labelY = y - 12;
+
+  // Draw label background
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+  ctx.fillRect(labelX, labelY, textWidth + padding * 2, 24);
+
+  // Draw label text
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText(userName, labelX + padding, labelY + 5);
+
+  // Restore context state
+  ctx.restore();
+}
