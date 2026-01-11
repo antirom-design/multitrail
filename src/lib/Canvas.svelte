@@ -40,27 +40,54 @@
   }
 
   onMount(() => {
+    console.log('🎨 Canvas onMount - Starting initialization...');
+    console.log('🎨 isMultiplayerMode:', isMultiplayerMode);
+    console.log('🎨 websocket:', websocket);
+    console.log('🎨 settings:', settings);
+
     // Initialize trail manager with initial lifetime
+    console.log('🎨 Creating TrailManager...');
     trailManager = new TrailManager(settings.lifetimeMs);
+    console.log('✅ TrailManager created');
 
     // Initialize multiplayer managers if in multiplayer mode
     if (isMultiplayerMode) {
-      remoteTrailsManager = new RemoteTrailsManager();
-      remoteCursorsManager = new RemoteCursorsManager();
-      setupMultiplayerListeners();
+      console.log('🎨 Multiplayer mode enabled - initializing managers...');
+      try {
+        console.log('🎨 Creating RemoteTrailsManager...');
+        remoteTrailsManager = new RemoteTrailsManager();
+        console.log('✅ RemoteTrailsManager created');
+
+        console.log('🎨 Creating RemoteCursorsManager...');
+        remoteCursorsManager = new RemoteCursorsManager();
+        console.log('✅ RemoteCursorsManager created');
+
+        console.log('🎨 Setting up multiplayer listeners...');
+        setupMultiplayerListeners();
+        console.log('✅ Multiplayer listeners setup complete');
+      } catch (error) {
+        console.error('❌ Error initializing multiplayer managers:', error);
+        throw error;
+      }
     }
 
     // Set up canvas for high-DPI displays
+    console.log('🎨 Resizing canvas...');
     resizeCanvas();
+    console.log('✅ Canvas resized');
 
     // Start animation loop
+    console.log('🎨 Starting animation loop...');
     startAnimationLoop();
+    console.log('✅ Animation loop started');
 
     // Handle window resize
+    console.log('🎨 Adding window event listeners...');
     window.addEventListener('resize', resizeCanvas);
-
-    // Handle keyboard events
     window.addEventListener('keydown', handleKeyDown);
+    console.log('✅ Window event listeners added');
+
+    console.log('✅ Canvas onMount complete!');
   });
 
   onDestroy(() => {
@@ -145,49 +172,80 @@
 
   // Multiplayer setup and handlers
   function setupMultiplayerListeners() {
+    console.log('🔌 Setting up multiplayer event listeners...');
     window.addEventListener('remoteDrawPoints', handleRemotePoints);
+    console.log('✅ remoteDrawPoints listener added');
     window.addEventListener('remoteCursor', handleRemoteCursor);
+    console.log('✅ remoteCursor listener added');
     window.addEventListener('remoteSettings', handleRemoteSettings);
+    console.log('✅ remoteSettings listener added');
   }
 
   function handleRemotePoints(event) {
+    console.log('📍 Received remote points:', event.detail);
     const { sessionId, userName, points } = event.detail;
     if (remoteTrailsManager) {
       remoteTrailsManager.addUser(sessionId, userName);
       remoteTrailsManager.addPoints(sessionId, points);
+      console.log(`✅ Added ${points.length} points for user ${userName}`);
+    } else {
+      console.warn('⚠️ remoteTrailsManager not initialized');
     }
   }
 
   function handleRemoteCursor(event) {
+    console.log('🖱️ Received remote cursor:', event.detail);
     const { sessionId, userName, x, y } = event.detail;
     if (remoteCursorsManager) {
       remoteCursorsManager.updateCursor(sessionId, userName, x, y);
+    } else {
+      console.warn('⚠️ remoteCursorsManager not initialized');
     }
   }
 
   function handleRemoteSettings(event) {
+    console.log('⚙️ Received remote settings:', event.detail);
     const { sessionId, settings: userSettings } = event.detail;
     if (remoteTrailsManager) {
       remoteTrailsManager.updateSettings(sessionId, userSettings);
+    } else {
+      console.warn('⚠️ remoteTrailsManager not initialized for settings update');
     }
   }
 
   // Point buffering for multiplayer
   function bufferPoint(point) {
+    console.log('📦 Buffering point:', point);
     pointBuffer.push(point);
 
     // Send batch every 32ms (30 FPS) or when buffer reaches 10 points
     if (pointBuffer.length >= 10) {
+      console.log('📦 Buffer full (10 points), flushing...');
       flushPointBuffer();
     } else if (!pointBatchTimeout) {
+      console.log('📦 Starting batch timeout (32ms)...');
       pointBatchTimeout = setTimeout(flushPointBuffer, 32);
     }
   }
 
   function flushPointBuffer() {
+    console.log(`📤 Flushing ${pointBuffer.length} points. WebSocket:`, websocket);
     if (pointBuffer.length > 0 && websocket) {
-      websocket.sendPoints([...pointBuffer]);
-      pointBuffer = [];
+      try {
+        console.log('📤 Calling websocket.sendPoints with', pointBuffer.length, 'points');
+        websocket.sendPoints([...pointBuffer]);
+        console.log('✅ Points sent successfully');
+        pointBuffer = [];
+      } catch (error) {
+        console.error('❌ Error sending points:', error);
+      }
+    } else {
+      if (!websocket) {
+        console.warn('⚠️ Cannot flush points - websocket is null');
+      }
+      if (pointBuffer.length === 0) {
+        console.log('ℹ️ Buffer is empty, nothing to flush');
+      }
     }
     pointBatchTimeout = null;
   }
@@ -238,6 +296,7 @@
 
   // Mouse events (for desktop testing)
   function handleMouseDown(e) {
+    console.log('🖱️ Mouse down');
     isDrawing = true;
     trailManager.startNewStroke(); // Start a new stroke
     const rect = canvas.getBoundingClientRect();
@@ -247,9 +306,15 @@
 
     // Send stroke start and point to WebSocket if in multiplayer mode
     if (isMultiplayerMode && websocket) {
-      websocket.sendStrokeStart(trailManager.currentStrokeId);
-      const lastPoint = trailManager.points[trailManager.points.length - 1];
-      bufferPoint(lastPoint);
+      console.log('📤 Sending stroke start. Multiplayer:', isMultiplayerMode, 'WebSocket:', websocket);
+      try {
+        websocket.sendStrokeStart(trailManager.currentStrokeId);
+        console.log('✅ Stroke start sent');
+        const lastPoint = trailManager.points[trailManager.points.length - 1];
+        bufferPoint(lastPoint);
+      } catch (error) {
+        console.error('❌ Error in handleMouseDown:', error);
+      }
     }
   }
 

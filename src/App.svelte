@@ -70,10 +70,14 @@
     // Check if we have a saved name
     const savedName = localStorage.getItem('multitrail_last_name');
     if (savedName) {
+      console.log('📝 Using saved name:', savedName);
       user = { displayName: savedName };
       appState = STATES.ROOM_SELECT;
+      console.log('🔄 State changed to ROOM_SELECT');
     } else {
+      console.log('📝 No saved name, prompting for name');
       appState = STATES.NAMED;
+      console.log('🔄 State changed to NAMED');
     }
   }
 
@@ -82,12 +86,15 @@
   }
 
   function handleSetName({ detail: displayName }) {
+    console.log('📝 Setting name:', displayName);
     user = { displayName };
     localStorage.setItem('multitrail_last_name', displayName);
     appState = STATES.ROOM_SELECT;
+    console.log('🔄 State changed to ROOM_SELECT');
   }
 
   function handleCreateRoom() {
+    console.log('🎲 Creating new room...');
     // Generate 6-character room code
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     let code = '';
@@ -95,18 +102,27 @@
       code += chars[Math.floor(Math.random() * chars.length)];
     }
     roomCode = code;
+    console.log('🏠 Room code generated:', roomCode);
+    console.log('🔄 Changing state to IN_ROOM...');
     appState = STATES.IN_ROOM;
+    console.log('✅ State changed to IN_ROOM');
   }
 
   function handleJoinRoom({ detail: code }) {
+    console.log('🚪 Joining room:', code);
     roomCode = code.toUpperCase();
+    console.log('🔄 Changing state to IN_ROOM...');
     appState = STATES.IN_ROOM;
+    console.log('✅ State changed to IN_ROOM');
   }
 
   function handleLeaveRoom() {
+    console.log('🚪 Leaving room...');
     if (websocket) {
+      console.log('🔌 Disconnecting WebSocket...');
       websocket.disconnect();
       websocket = null;
+      console.log('✅ WebSocket disconnected');
     }
     roomCode = null;
     roomState = {
@@ -115,26 +131,54 @@
       isHousemaster: false
     };
     appState = STATES.ROOM_SELECT;
+    console.log('🔄 State changed to ROOM_SELECT');
   }
 
   // WebSocket connection - only when IN_ROOM
   $: if (appState === STATES.IN_ROOM && roomCode && user && !websocket) {
-    console.log('🔌 Connecting to WebSocket:', BACKEND_URL);
-    websocket = createWebSocket();
-    websocket.connect(BACKEND_URL);
+    console.log('🔌 Reactive: WebSocket connection triggered');
+    console.log('🔌 appState:', appState);
+    console.log('🔌 roomCode:', roomCode);
+    console.log('🔌 user:', user);
+    console.log('🔌 BACKEND_URL:', BACKEND_URL);
 
-    websocket.subscribe(state => {
-      if (state.connected && appState === STATES.IN_ROOM) {
-        // Join the house/room
-        websocket.joinHouse(roomCode, user.displayName);
-      }
+    try {
+      console.log('🔌 Creating WebSocket...');
+      websocket = createWebSocket();
+      console.log('✅ WebSocket object created:', websocket);
 
-      if (state.rooms && state.rooms.length > 0) {
-        roomState.users = state.rooms;
-        roomState.sessionId = state.sessionId;
-        roomState.isHousemaster = state.isHousemaster;
-      }
-    });
+      console.log('🔌 Connecting to', BACKEND_URL);
+      websocket.connect(BACKEND_URL);
+      console.log('✅ WebSocket.connect() called');
+
+      console.log('🔌 Subscribing to WebSocket state updates...');
+      websocket.subscribe(state => {
+        console.log('📡 WebSocket state update received:', state);
+
+        if (state.connected && appState === STATES.IN_ROOM) {
+          console.log('📡 WebSocket connected! Joining house...');
+          console.log('📡 Joining house:', roomCode, 'as', user.displayName);
+          try {
+            websocket.joinHouse(roomCode, user.displayName);
+            console.log('✅ joinHouse() called successfully');
+          } catch (error) {
+            console.error('❌ Error calling joinHouse:', error);
+          }
+        }
+
+        if (state.rooms && state.rooms.length > 0) {
+          console.log('📡 Received room list:', state.rooms);
+          roomState.users = state.rooms;
+          roomState.sessionId = state.sessionId;
+          roomState.isHousemaster = state.isHousemaster;
+          console.log('✅ Room state updated:', roomState);
+        }
+      });
+      console.log('✅ WebSocket subscription setup complete');
+    } catch (error) {
+      console.error('❌ Error in WebSocket initialization:', error);
+      throw error;
+    }
   }
 
   function handleSettingsUpdate(event) {
