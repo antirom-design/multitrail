@@ -1,10 +1,30 @@
 <script>
+  import { onMount } from 'svelte';
   import Canvas from './lib/Canvas.svelte';
   import Settings from './lib/Settings.svelte';
+  import TestScreen from './lib/TestScreen.svelte';
+  import NameInput from './lib/NameInput.svelte';
   import RoomJoin from './lib/RoomJoin.svelte';
   import UserList from './lib/UserList.svelte';
   import RoomInfo from './lib/RoomInfo.svelte';
   import { createWebSocket } from './lib/websocket.js';
+
+  const BACKEND_URL = import.meta.env.PROD
+    ? 'wss://funkhaus-websocket.onrender.com'
+    : 'ws://localhost:3001';
+
+  // States: TESTING → NAMED → ROOM_SELECT → IN_ROOM
+  const STATES = {
+    TESTING: 'TESTING',
+    NAMED: 'NAMED',
+    ROOM_SELECT: 'ROOM_SELECT',
+    IN_ROOM: 'IN_ROOM'
+  };
+
+  let appState = STATES.TESTING;
+  let user = null;
+  let roomCode = null;
+  let websocket = null;
 
   let settings = {
     lifetimeMs: 15000,
@@ -20,43 +40,99 @@
     fontSize: 24
   };
 
-  // Multiplayer state
-  let websocket = null;
-  let multiplayerMode = false;
-  let inRoom = false;
   let roomState = {
-    code: '',
     users: [],
     sessionId: null,
     isHousemaster: false
   };
 
-  function handleJoinRoom({ detail }) {
-    const { roomCode, userName } = detail;
+  let sessionId = null;
 
-    // Determine WebSocket URL based on environment
-    const wsUrl = import.meta.env.PROD
-      ? 'wss://funkhaus-websocket.onrender.com'
-      : 'ws://localhost:3001';
+  onMount(() => {
+    // Generate session ID
+    let storedSessionId = sessionStorage.getItem('multitrail_session_id');
+    if (!storedSessionId) {
+      storedSessionId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      sessionStorage.setItem('multitrail_session_id', storedSessionId);
+    }
+    sessionId = storedSessionId;
+    console.log('🆔 Session ID:', sessionId);
 
-    // Initialize WebSocket
+    // Check for saved name
+    const savedName = localStorage.getItem('multitrail_last_name');
+    if (savedName && appState === STATES.TESTING) {
+      // We'll set this after tests pass
+    }
+  });
+
+  function handleTestsPass() {
+    console.log('✅ Tests passed');
+    // Check if we have a saved name
+    const savedName = localStorage.getItem('multitrail_last_name');
+    if (savedName) {
+      user = { displayName: savedName };
+      appState = STATES.ROOM_SELECT;
+    } else {
+      appState = STATES.NAMED;
+    }
+  }
+
+  function handleTestsFail(report) {
+    console.error('❌ Tests failed:', report);
+  }
+
+  function handleSetName({ detail: displayName }) {
+    user = { displayName };
+    localStorage.setItem('multitrail_last_name', displayName);
+    appState = STATES.ROOM_SELECT;
+  }
+
+  function handleCreateRoom() {
+    // Generate 6-character room code
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let code = '';
+    for (let i = 0; i < 6; i++) {
+      code += chars[Math.floor(Math.random() * chars.length)];
+    }
+    roomCode = code;
+    appState = STATES.IN_ROOM;
+  }
+
+  function handleJoinRoom({ detail: code }) {
+    roomCode = code.toUpperCase();
+    appState = STATES.IN_ROOM;
+  }
+
+  function handleLeaveRoom() {
+    if (websocket) {
+      websocket.disconnect();
+      websocket = null;
+    }
+    roomCode = null;
+    roomState = {
+      users: [],
+      sessionId: null,
+      isHousemaster: false
+    };
+    appState = STATES.ROOM_SELECT;
+  }
+
+  // WebSocket connection - only when IN_ROOM
+  $: if (appState === STATES.IN_ROOM && roomCode && user && !websocket) {
+    console.log('🔌 Connecting to WebSocket:', BACKEND_URL);
     websocket = createWebSocket();
-    websocket.connect(wsUrl);
+    websocket.connect(BACKEND_URL);
 
-    // Subscribe to WebSocket state changes
     websocket.subscribe(state => {
-      if (state.connected && !inRoom) {
+      if (state.connected && appState === STATES.IN_ROOM) {
         // Join the house/room
-        websocket.joinHouse(roomCode, userName);
+        websocket.joinHouse(roomCode, user.displayName);
       }
 
       if (state.rooms && state.rooms.length > 0) {
         roomState.users = state.rooms;
         roomState.sessionId = state.sessionId;
         roomState.isHousemaster = state.isHousemaster;
-        inRoom = true;
-        multiplayerMode = true;
-        roomState.code = roomCode;
       }
     });
   }
@@ -64,8 +140,8 @@
   function handleSettingsUpdate(event) {
     settings = { ...event.detail };
 
-    // Broadcast settings update if in multiplayer
-    if (multiplayerMode && websocket && inRoom) {
+    // Broadcast settings update if in room
+    if (appState === STATES.IN_ROOM && websocket) {
       websocket.sendSettings({
         color: settings.color,
         strokeWidth: settings.strokeWidth,
@@ -74,53 +150,41 @@
       });
     }
   }
-
-  function toggleMultiplayer() {
-    if (!multiplayerMode) {
-      // Show join screen
-      multiplayerMode = true;
-      inRoom = false;
-    } else {
-      // Leave room
-      if (websocket) {
-        websocket.disconnect();
-        websocket = null;
-      }
-      multiplayerMode = false;
-      inRoom = false;
-      roomState = {
-        code: '',
-        users: [],
-        sessionId: null,
-        isHousemaster: false
-      };
-    }
-  }
 </script>
 
 <main>
-  {#if multiplayerMode && !inRoom}
-    <RoomJoin on:join={handleJoinRoom} />
-  {:else}
+  {#if appState === STATES.TESTING}
+    <TestScreen
+      backendUrl={BACKEND_URL}
+      on:testsPass={handleTestsPass}
+      on:testsFail={handleTestsFail}
+    />
+  {:else if appState === STATES.NAMED}
+    <NameInput on:submit={handleSetName} />
+  {:else if appState === STATES.ROOM_SELECT}
+    <RoomJoin
+      displayName={user?.displayName}
+      on:createRoom={handleCreateRoom}
+      on:joinRoom={handleJoinRoom}
+    />
+  {:else if appState === STATES.IN_ROOM}
     <Canvas
       {settings}
       {websocket}
-      isMultiplayerMode={multiplayerMode && inRoom}
+      isMultiplayerMode={true}
     />
 
     <Settings bind:settings on:update={handleSettingsUpdate} />
 
-    {#if multiplayerMode && inRoom}
-      <UserList
-        users={roomState.users}
-        currentUserId={roomState.sessionId}
-      />
-      <RoomInfo roomCode={roomState.code} />
-    {/if}
+    <UserList
+      users={roomState.users}
+      currentUserId={roomState.sessionId}
+    />
 
-    <!-- Multiplayer toggle button -->
-    <button class="mp-toggle" on:click={toggleMultiplayer}>
-      {multiplayerMode ? 'Leave Room' : 'Join Multiplayer'}
+    <RoomInfo roomCode={roomCode} />
+
+    <button class="leave-btn" on:click={handleLeaveRoom}>
+      Leave Room
     </button>
   {/if}
 </main>
@@ -132,12 +196,12 @@
     display: block;
   }
 
-  .mp-toggle {
+  .leave-btn {
     position: fixed;
     bottom: 20px;
     right: 20px;
     padding: 12px 24px;
-    background: rgba(0, 0, 0, 0.7);
+    background: rgba(255, 59, 48, 0.9);
     border: 2px solid rgba(255, 255, 255, 0.3);
     border-radius: 8px;
     color: white;
@@ -147,23 +211,22 @@
     backdrop-filter: blur(10px);
     transition: all 0.2s;
     z-index: 100;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 4px 12px rgba(255, 59, 48, 0.3);
   }
 
-  .mp-toggle:hover {
-    background: rgba(0, 0, 0, 0.85);
+  .leave-btn:hover {
+    background: rgba(255, 59, 48, 1);
     border-color: rgba(255, 255, 255, 0.5);
     transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 6px 16px rgba(255, 59, 48, 0.4);
   }
 
-  .mp-toggle:active {
+  .leave-btn:active {
     transform: translateY(0);
   }
 
-  /* Mobile responsiveness */
   @media (max-width: 600px) {
-    .mp-toggle {
+    .leave-btn {
       bottom: 10px;
       right: 10px;
       padding: 10px 20px;

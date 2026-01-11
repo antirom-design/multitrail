@@ -1,90 +1,56 @@
 <script>
   import { createEventDispatcher } from 'svelte';
 
+  export let displayName;
+
   const dispatch = createEventDispatcher();
 
   let roomCode = '';
-  let userName = '';
-  let errorMessage = '';
-
-  function generateRoomCode() {
-    return Math.random().toString(36).substring(2, 8).toUpperCase();
-  }
 
   function handleCreate() {
-    errorMessage = '';
-    if (!userName.trim()) {
-      errorMessage = 'Please enter your name';
-      return;
-    }
-    const code = generateRoomCode();
-    dispatch('join', { roomCode: code, userName: userName.trim() });
+    dispatch('createRoom');
   }
 
-  function handleJoin() {
-    errorMessage = '';
-    if (!userName.trim()) {
-      errorMessage = 'Please enter your name';
-      return;
-    }
-    if (!roomCode.trim()) {
-      errorMessage = 'Please enter a room code';
-      return;
-    }
-    dispatch('join', { roomCode: roomCode.trim().toUpperCase(), userName: userName.trim() });
-  }
-
-  function handleKeyPress(e) {
-    if (e.key === 'Enter') {
-      if (roomCode.trim()) {
-        handleJoin();
-      } else {
-        handleCreate();
-      }
+  function handleJoin(e) {
+    e.preventDefault();
+    if (roomCode.length === 6) {
+      dispatch('joinRoom', roomCode.toUpperCase());
     }
   }
 </script>
 
 <div class="join-screen">
   <div class="content">
-    <h1>Multitrail</h1>
-    <p class="subtitle">Multiplayer Drawing</p>
+    <h1>Hey, {displayName}!</h1>
+    <p>Create a new room or join an existing one</p>
 
     <div class="form">
-      <input
-        type="text"
-        placeholder="Your name"
-        bind:value={userName}
-        on:keypress={handleKeyPress}
-        maxlength="20"
-        autocomplete="off"
-      />
+      <button class="primary" on:click={handleCreate}>
+        Create New Room
+      </button>
 
       <div class="divider">
-        <button class="primary" on:click={handleCreate} disabled={!userName.trim()}>
-          Create New Room
-        </button>
-
         <span class="or-text">or join existing</span>
+      </div>
 
+      <form on:submit={handleJoin}>
         <div class="join-group">
           <input
             type="text"
-            placeholder="Room code"
             bind:value={roomCode}
-            on:keypress={handleKeyPress}
+            placeholder="XJ9L2W"
             maxlength="6"
             autocomplete="off"
+            style="text-transform: uppercase; text-align: center; font-size: 20px; letter-spacing: 2px;"
           />
-          <button on:click={handleJoin} disabled={!userName.trim() || !roomCode.trim()}>
+          <button
+            type="submit"
+            disabled={roomCode.length !== 6}
+          >
             Join Room
           </button>
         </div>
-      </div>
-
-      {#if errorMessage}
-        <div class="error">{errorMessage}</div>
-      {/if}
+      </form>
     </div>
   </div>
 </div>
@@ -109,13 +75,12 @@
   }
 
   h1 {
-    font-size: 4rem;
+    font-size: 3rem;
     margin: 0 0 0.5rem 0;
     font-weight: 300;
-    letter-spacing: 0.1em;
   }
 
-  .subtitle {
+  p {
     font-size: 1.2rem;
     margin: 0 0 3rem 0;
     opacity: 0.9;
@@ -131,29 +96,6 @@
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
   }
 
-  input {
-    width: 100%;
-    padding: 14px 16px;
-    margin-bottom: 1rem;
-    border: 2px solid rgba(255, 255, 255, 0.3);
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.1);
-    color: white;
-    font-size: 1rem;
-    transition: all 0.2s;
-    box-sizing: border-box;
-  }
-
-  input:focus {
-    outline: none;
-    border-color: rgba(255, 255, 255, 0.6);
-    background: rgba(255, 255, 255, 0.15);
-  }
-
-  input::placeholder {
-    color: rgba(255, 255, 255, 0.5);
-  }
-
   button {
     padding: 14px 28px;
     border: none;
@@ -165,6 +107,7 @@
     cursor: pointer;
     transition: all 0.2s;
     border: 2px solid rgba(255, 255, 255, 0.3);
+    width: 100%;
   }
 
   button.primary {
@@ -192,42 +135,45 @@
   }
 
   .divider {
-    display: flex;
-    flex-direction: column;
-    gap: 1.2rem;
-    align-items: stretch;
-    margin-top: 0.5rem;
+    margin: 1.5rem 0;
+    text-align: center;
   }
 
   .or-text {
     opacity: 0.7;
     font-size: 0.9rem;
-    text-align: center;
   }
 
   .join-group {
     display: flex;
+    flex-direction: column;
     gap: 0.75rem;
   }
 
-  .join-group input {
-    flex: 1;
-    margin-bottom: 0;
-    text-transform: uppercase;
-  }
-
-  .join-group button {
-    white-space: nowrap;
-  }
-
-  .error {
-    margin-top: 1rem;
-    padding: 12px;
-    background: rgba(255, 59, 48, 0.2);
-    border: 1px solid rgba(255, 59, 48, 0.4);
-    border-radius: 6px;
+  input {
+    width: 100%;
+    padding: 14px 16px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.1);
     color: white;
-    font-size: 0.9rem;
+    font-size: 1rem;
+    transition: all 0.2s;
+    box-sizing: border-box;
+  }
+
+  input:focus {
+    outline: none;
+    border-color: rgba(255, 255, 255, 0.6);
+    background: rgba(255, 255, 255, 0.15);
+  }
+
+  input::placeholder {
+    color: rgba(255, 255, 255, 0.5);
+  }
+
+  form {
+    margin: 0;
   }
 
   /* Mobile responsiveness */
@@ -236,7 +182,7 @@
       font-size: 2.5rem;
     }
 
-    .subtitle {
+    p {
       font-size: 1rem;
       margin-bottom: 2rem;
     }
@@ -245,15 +191,6 @@
       min-width: 0;
       width: calc(100vw - 40px);
       padding: 2rem 1.5rem;
-    }
-
-    .join-group {
-      flex-direction: column;
-      gap: 0.5rem;
-    }
-
-    .join-group input {
-      margin-bottom: 0.5rem;
     }
   }
 </style>
