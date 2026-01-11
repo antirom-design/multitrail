@@ -3,7 +3,7 @@
  * Svelte store-based WebSocket manager
  */
 
-import { writable } from 'svelte'
+import { writable } from 'svelte/store'
 
 export function createWebSocket() {
   const { subscribe, set, update } = writable({

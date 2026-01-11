@@ -8,9 +8,16 @@
     copied = true;
     setTimeout(() => (copied = false), 2000);
   }
+
+  function handleKeyPress(e) {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      copyCode();
+    }
+  }
 </script>
 
-<div class="room-info" on:click={copyCode}>
+<div class="room-info" on:click={copyCode} on:keypress={handleKeyPress} role="button" tabindex="0">
   <div class="code-display">
     <span class="label">Room Code:</span>
     <span class="code">{roomCode}</span>
