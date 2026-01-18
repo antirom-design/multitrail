@@ -14,12 +14,14 @@ export class RemoteCursorsManager {
    * @param {string} userName - Display name
    * @param {number} x - X coordinate
    * @param {number} y - Y coordinate
+   * @param {string} color - User's color (optional)
    */
-  updateCursor(userId, userName, x, y) {
+  updateCursor(userId, userName, x, y, color = '#ffffff') {
     this.cursors.set(userId, {
       x,
       y,
       userName,
+      color,
       lastSeen: Date.now()
     })
   }
@@ -34,7 +36,7 @@ export class RemoteCursorsManager {
 
   /**
    * Get all active cursors (removes stale ones automatically)
-   * @returns {Array} Array of cursor objects with userId, x, y, userName
+   * @returns {Array} Array of cursor objects with userId, x, y, userName, color
    */
   getActiveCursors() {
     const now = Date.now()
@@ -50,7 +52,8 @@ export class RemoteCursorsManager {
           userId,
           x: cursor.x,
           y: cursor.y,
-          userName: cursor.userName
+          userName: cursor.userName,
+          color: cursor.color || '#ffffff'
         })
       }
     })

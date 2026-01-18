@@ -6,6 +6,8 @@
   const dispatch = createEventDispatcher();
 
   let roomCode = '';
+  let isEditingName = false;
+  let newName = displayName;
 
   function handleCreate() {
     dispatch('createRoom');
@@ -17,13 +19,60 @@
       dispatch('joinRoom', roomCode.toUpperCase());
     }
   }
+
+  function startEditName() {
+    isEditingName = true;
+    newName = displayName;
+  }
+
+  function cancelEditName() {
+    isEditingName = false;
+    newName = displayName;
+  }
+
+  function saveNewName(e) {
+    e.preventDefault();
+    if (newName.trim()) {
+      dispatch('changeName', newName.trim());
+      isEditingName = false;
+    }
+  }
 </script>
 
 <div class="join-screen">
   <div class="content">
-    <h1>Hey, {displayName}!</h1>
-    <p>Create a new room or join an existing one</p>
+    {#if isEditingName}
+      <form on:submit={saveNewName} class="name-edit-form">
+        <h2>Change your name</h2>
+        <input
+          type="text"
+          bind:value={newName}
+          placeholder="Your name"
+          maxlength="20"
+          autocomplete="off"
+          autofocus
+        />
+        <div class="button-group">
+          <button type="submit" class="primary" disabled={!newName.trim()}>
+            Save
+          </button>
+          <button type="button" class="secondary" on:click={cancelEditName}>
+            Cancel
+          </button>
+        </div>
+      </form>
+    {:else}
+      <button class="edit-name-btn" on:click={startEditName} aria-label="Edit name">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+        </svg>
+      </button>
+      <h1>Hey, {displayName}!</h1>
+      <p>Create a new room or join an existing one</p>
+    {/if}
 
+    {#if !isEditingName}
     <div class="form">
       <button class="primary" on:click={handleCreate}>
         Create New Room
@@ -52,6 +101,7 @@
         </div>
       </form>
     </div>
+    {/if}
   </div>
 </div>
 
@@ -74,9 +124,38 @@
     text-align: center;
   }
 
+  .edit-name-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    color: white;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    opacity: 0.6;
+    margin-bottom: 8px;
+  }
+
+  .edit-name-btn:hover {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+
+  .edit-name-btn svg {
+    display: block;
+  }
+
   h1 {
     font-size: 3rem;
     margin: 0 0 0.5rem 0;
+    font-weight: 300;
+  }
+
+  h2 {
+    font-size: 2rem;
+    margin: 0 0 1.5rem 0;
     font-weight: 300;
   }
 
@@ -85,6 +164,47 @@
     margin: 0 0 3rem 0;
     opacity: 0.9;
     font-weight: 300;
+  }
+
+  .name-edit-form {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 2.5rem;
+    border-radius: 16px;
+    backdrop-filter: blur(10px);
+    min-width: 400px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  }
+
+  .name-edit-form input {
+    width: 100%;
+    padding: 14px 16px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    font-size: 1rem;
+    transition: all 0.2s;
+    box-sizing: border-box;
+    margin-bottom: 1rem;
+  }
+
+  .name-edit-form input:focus {
+    outline: none;
+    border-color: rgba(255, 255, 255, 0.6);
+    background: rgba(255, 255, 255, 0.15);
+  }
+
+  .name-edit-form input::placeholder {
+    color: rgba(255, 255, 255, 0.5);
+  }
+
+  .button-group {
+    display: flex;
+    gap: 12px;
+  }
+
+  .button-group button {
+    flex: 1;
   }
 
   .form {
@@ -116,6 +236,12 @@
     border-color: transparent;
   }
 
+  button.secondary {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+  }
+
   button:hover:not(:disabled) {
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
@@ -123,6 +249,10 @@
 
   button.primary:hover:not(:disabled) {
     background: white;
+  }
+
+  button.secondary:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.2);
   }
 
   button:active:not(:disabled) {
@@ -182,6 +312,10 @@
       font-size: 2.5rem;
     }
 
+    h2 {
+      font-size: 1.5rem;
+    }
+
     p {
       font-size: 1rem;
       margin-bottom: 2rem;
@@ -191,6 +325,17 @@
       min-width: 0;
       width: calc(100vw - 40px);
       padding: 2rem 1.5rem;
+    }
+
+    .name-edit-form {
+      min-width: 0;
+      width: calc(100vw - 40px);
+      padding: 2rem 1.5rem;
+    }
+
+    .edit-name-btn svg {
+      width: 14px;
+      height: 14px;
     }
   }
 </style>

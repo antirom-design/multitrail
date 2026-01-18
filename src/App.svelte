@@ -6,6 +6,7 @@
   import NameInput from './lib/NameInput.svelte';
   import RoomJoin from './lib/RoomJoin.svelte';
   import UserList from './lib/UserList.svelte';
+  import OnlineIndicator from './lib/OnlineIndicator.svelte';
   import RoomInfo from './lib/RoomInfo.svelte';
   import { createWebSocket } from './lib/websocket.js';
 
@@ -21,13 +22,33 @@
     IN_ROOM: 'IN_ROOM'
   };
 
+  // Color palette for users
+  const COLOR_PALETTE = [
+    '#FF6B6B', // red
+    '#4ECDC4', // turquoise
+    '#45B7D1', // blue
+    '#FFA07A', // salmon
+    '#98D8C8', // mint
+    '#F7DC6F', // yellow
+    '#BB8FCE', // purple
+    '#85C1E2', // sky blue
+    '#F8B739', // orange
+    '#52C77A', // green
+    '#FF85A1', // pink
+    '#95E1D3'  // aqua
+  ];
+
+  function getRandomColor() {
+    return COLOR_PALETTE[Math.floor(Math.random() * COLOR_PALETTE.length)];
+  }
+
   let appState = STATES.TESTING;
   let user = null;
   let roomCode = null;
   let websocket = null;
 
   let settings = {
-    lifetimeMs: 15000,
+    lifetimeMs: 10000,
     strokeWidth: 4,
     color: '#ffffff',
     drawStyle: 'line',
@@ -47,6 +68,43 @@
   };
 
   let sessionId = null;
+  let hasJoinedHouse = false; // Track if we've joined to prevent infinite loop
+  let showUserList = false; // Toggle for user list overlay
+  let autoJoinRoomCode = null; // Room code from QR scan
+
+  function toggleUserList() {
+    showUserList = !showUserList;
+  }
+
+  function closeUserList() {
+    showUserList = false;
+  }
+
+  function requestFullscreen() {
+    // Request fullscreen to hide URL bar on mobile
+    const elem = document.documentElement;
+    if (elem.requestFullscreen) {
+      elem.requestFullscreen().catch(err => {
+        console.log('Fullscreen request failed:', err);
+      });
+    } else if (elem.webkitRequestFullscreen) { // Safari
+      elem.webkitRequestFullscreen();
+    } else if (elem.msRequestFullscreen) { // IE11
+      elem.msRequestFullscreen();
+    }
+  }
+
+  function exitFullscreen() {
+    if (document.exitFullscreen) {
+      document.exitFullscreen().catch(err => {
+        console.log('Exit fullscreen failed:', err);
+      });
+    } else if (document.webkitExitFullscreen) {
+      document.webkitExitFullscreen();
+    } else if (document.msExitFullscreen) {
+      document.msExitFullscreen();
+    }
+  }
 
   onMount(() => {
     // Generate session ID
@@ -57,6 +115,16 @@
     }
     sessionId = storedSessionId;
     console.log('🆔 Session ID:', sessionId);
+
+    // Check for room code in URL (QR scan)
+    const urlParams = new URLSearchParams(window.location.search);
+    const joinCode = urlParams.get('join');
+    if (joinCode) {
+      autoJoinRoomCode = joinCode.toUpperCase();
+      console.log('🔗 Auto-join room code from URL:', autoJoinRoomCode);
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
 
     // Check for saved name
     const savedName = localStorage.getItem('multitrail_last_name');
@@ -72,8 +140,18 @@
     if (savedName) {
       console.log('📝 Using saved name:', savedName);
       user = { displayName: savedName };
-      appState = STATES.ROOM_SELECT;
-      console.log('🔄 State changed to ROOM_SELECT');
+
+      // Auto-join room if we have a code from QR scan
+      if (autoJoinRoomCode) {
+        console.log('🔗 Auto-joining room:', autoJoinRoomCode);
+        roomCode = autoJoinRoomCode;
+        settings.color = getRandomColor();
+        appState = STATES.IN_ROOM;
+        setTimeout(() => requestFullscreen(), 500);
+      } else {
+        appState = STATES.ROOM_SELECT;
+        console.log('🔄 State changed to ROOM_SELECT');
+      }
     } else {
       console.log('📝 No saved name, prompting for name');
       appState = STATES.NAMED;
@@ -89,8 +167,18 @@
     console.log('📝 Setting name:', displayName);
     user = { displayName };
     localStorage.setItem('multitrail_last_name', displayName);
-    appState = STATES.ROOM_SELECT;
-    console.log('🔄 State changed to ROOM_SELECT');
+
+    // Auto-join room if we have a code from QR scan
+    if (autoJoinRoomCode) {
+      console.log('🔗 Auto-joining room:', autoJoinRoomCode);
+      roomCode = autoJoinRoomCode;
+      settings.color = getRandomColor();
+      appState = STATES.IN_ROOM;
+      setTimeout(() => requestFullscreen(), 500);
+    } else {
+      appState = STATES.ROOM_SELECT;
+      console.log('🔄 State changed to ROOM_SELECT');
+    }
   }
 
   function handleCreateRoom() {
@@ -102,18 +190,35 @@
       code += chars[Math.floor(Math.random() * chars.length)];
     }
     roomCode = code;
+    // Assign a random color to the user
+    settings.color = getRandomColor();
     console.log('🏠 Room code generated:', roomCode);
+    console.log('🎨 User color assigned:', settings.color);
     console.log('🔄 Changing state to IN_ROOM...');
     appState = STATES.IN_ROOM;
     console.log('✅ State changed to IN_ROOM');
+    // Request fullscreen on mobile to hide URL bar
+    setTimeout(() => requestFullscreen(), 500);
   }
 
   function handleJoinRoom({ detail: code }) {
     console.log('🚪 Joining room:', code);
     roomCode = code.toUpperCase();
+    // Assign a random color to the user
+    settings.color = getRandomColor();
+    console.log('🎨 User color assigned:', settings.color);
     console.log('🔄 Changing state to IN_ROOM...');
     appState = STATES.IN_ROOM;
     console.log('✅ State changed to IN_ROOM');
+    // Request fullscreen on mobile to hide URL bar
+    setTimeout(() => requestFullscreen(), 500);
+  }
+
+  function handleChangeName({ detail: newName }) {
+    console.log('✏️ Changing name to:', newName);
+    user = { displayName: newName };
+    localStorage.setItem('multitrail_last_name', newName);
+    console.log('✅ Name updated');
   }
 
   function handleLeaveRoom() {
@@ -125,6 +230,7 @@
       console.log('✅ WebSocket disconnected');
     }
     roomCode = null;
+    hasJoinedHouse = false; // Reset flag for next room join
     roomState = {
       users: [],
       sessionId: null,
@@ -132,6 +238,8 @@
     };
     appState = STATES.ROOM_SELECT;
     console.log('🔄 State changed to ROOM_SELECT');
+    // Exit fullscreen when leaving room
+    exitFullscreen();
   }
 
   // WebSocket connection - only when IN_ROOM
@@ -155,11 +263,12 @@
       websocket.subscribe(state => {
         console.log('📡 WebSocket state update received:', state);
 
-        if (state.connected && appState === STATES.IN_ROOM) {
+        if (state.connected && appState === STATES.IN_ROOM && !hasJoinedHouse) {
           console.log('📡 WebSocket connected! Joining house...');
           console.log('📡 Joining house:', roomCode, 'as', user.displayName);
           try {
             websocket.joinHouse(roomCode, user.displayName);
+            hasJoinedHouse = true; // Prevent re-joining
             console.log('✅ joinHouse() called successfully');
           } catch (error) {
             console.error('❌ Error calling joinHouse:', error);
@@ -210,6 +319,7 @@
       displayName={user?.displayName}
       on:createRoom={handleCreateRoom}
       on:joinRoom={handleJoinRoom}
+      on:changeName={handleChangeName}
     />
   {:else if appState === STATES.IN_ROOM}
     <Canvas
@@ -220,15 +330,26 @@
 
     <Settings bind:settings on:update={handleSettingsUpdate} />
 
+    <OnlineIndicator
+      userCount={roomState.users.length}
+      on:click={toggleUserList}
+    />
+
     <UserList
       users={roomState.users}
       currentUserId={roomState.sessionId}
+      show={showUserList}
+      on:close={closeUserList}
     />
 
     <RoomInfo roomCode={roomCode} />
 
-    <button class="leave-btn" on:click={handleLeaveRoom}>
-      Leave Room
+    <button class="leave-btn" on:click={handleLeaveRoom} aria-label="Leave Room" title="Leave Room">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+        <polyline points="16 17 21 12 16 7"/>
+        <line x1="21" y1="12" x2="9" y2="12"/>
+      </svg>
     </button>
   {/if}
 </main>
@@ -244,23 +365,23 @@
     position: fixed;
     bottom: 20px;
     right: 20px;
-    padding: 12px 24px;
+    padding: 12px;
     background: rgba(255, 59, 48, 0.9);
-    border: 2px solid rgba(255, 255, 255, 0.3);
-    border-radius: 8px;
+    border: none;
+    border-radius: 50%;
     color: white;
-    font-size: 0.9rem;
-    font-weight: 600;
     cursor: pointer;
     backdrop-filter: blur(10px);
     transition: all 0.2s;
     z-index: 100;
     box-shadow: 0 4px 12px rgba(255, 59, 48, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .leave-btn:hover {
     background: rgba(255, 59, 48, 1);
-    border-color: rgba(255, 255, 255, 0.5);
     transform: translateY(-2px);
     box-shadow: 0 6px 16px rgba(255, 59, 48, 0.4);
   }
@@ -269,12 +390,20 @@
     transform: translateY(0);
   }
 
+  .leave-btn svg {
+    display: block;
+  }
+
   @media (max-width: 600px) {
     .leave-btn {
       bottom: 10px;
       right: 10px;
-      padding: 10px 20px;
-      font-size: 0.85rem;
+      padding: 10px;
+    }
+
+    .leave-btn svg {
+      width: 18px;
+      height: 18px;
     }
   }
 </style>

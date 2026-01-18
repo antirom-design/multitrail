@@ -264,38 +264,51 @@ export function setupHighDPICanvas(canvas, width, height) {
  * @param {number} x - X coordinate
  * @param {number} y - Y coordinate
  * @param {string} userName - Display name for the cursor
+ * @param {string} color - User's color (hex string)
  */
-export function drawRemoteCursor(ctx, x, y, userName) {
+export function drawRemoteCursor(ctx, x, y, userName, color = '#ffffff') {
   // Save current context state
   ctx.save();
 
-  // Draw crosshair cursor
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
-  ctx.lineWidth = 2;
+  // Draw crosshair cursor with user's color
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 3;
   ctx.lineCap = 'round';
 
   ctx.beginPath();
   // Horizontal line
-  ctx.moveTo(x - 10, y);
-  ctx.lineTo(x + 10, y);
+  ctx.moveTo(x - 12, y);
+  ctx.lineTo(x + 12, y);
   // Vertical line
-  ctx.moveTo(x, y - 10);
-  ctx.lineTo(x, y + 10);
+  ctx.moveTo(x, y - 12);
+  ctx.lineTo(x, y + 12);
   ctx.stroke();
 
+  // Add a white outline for visibility
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+  ctx.lineWidth = 5;
+  ctx.globalCompositeOperation = 'destination-over';
+  ctx.beginPath();
+  ctx.moveTo(x - 12, y);
+  ctx.lineTo(x + 12, y);
+  ctx.moveTo(x, y - 12);
+  ctx.lineTo(x, y + 12);
+  ctx.stroke();
+  ctx.globalCompositeOperation = 'source-over';
+
   // Draw username label
-  ctx.font = '14px sans-serif';
+  ctx.font = 'bold 13px sans-serif';
   ctx.textBaseline = 'top';
   const textWidth = ctx.measureText(userName).width;
   const padding = 6;
-  const labelX = x + 15;
+  const labelX = x + 16;
   const labelY = y - 12;
 
-  // Draw label background
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+  // Draw label background with user's color
+  ctx.fillStyle = color;
   ctx.fillRect(labelX, labelY, textWidth + padding * 2, 24);
 
-  // Draw label text
+  // Draw label text (white for contrast)
   ctx.fillStyle = '#ffffff';
   ctx.fillText(userName, labelX + padding, labelY + 5);
 

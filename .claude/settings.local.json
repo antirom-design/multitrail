@@ -5,7 +5,19 @@
       "Bash(git init:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(vercel:*)"
+      "Bash(vercel:*)",
+      "Bash(npm start)",
+      "Bash(node index.js:*)",
+      "Bash(git push:*)",
+      "Bash(gh --version:*)",
+      "Bash(gh auth:*)",
+      "Bash(npm run build:*)",
+      "WebFetch(domain:vercel.com)",
+      "Bash(grep:*)",
+      "Bash(curl:*)",
+      "Bash(tee:*)",
+      "Bash(git ls-files src/lib/*.svelte src/lib/*.js)",
+      "Bash(git restore:*)"
     ]
   }
 }

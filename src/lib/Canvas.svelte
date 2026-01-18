@@ -159,7 +159,7 @@
         // Draw remote cursors
         const cursors = remoteCursorsManager.getActiveCursors();
         cursors.forEach(cursor => {
-          drawRemoteCursor(ctx, cursor.x, cursor.y, cursor.userName);
+          drawRemoteCursor(ctx, cursor.x, cursor.y, cursor.userName, cursor.color);
         });
       }
 
@@ -196,10 +196,13 @@
   function handleRemoteCursor(event) {
     console.log('🖱️ Received remote cursor:', event.detail);
     const { sessionId, userName, x, y } = event.detail;
-    if (remoteCursorsManager) {
-      remoteCursorsManager.updateCursor(sessionId, userName, x, y);
+    if (remoteCursorsManager && remoteTrailsManager) {
+      // Get the user's color from their settings
+      const userMeta = remoteTrailsManager.userMeta.get(sessionId);
+      const color = userMeta?.settings?.color || '#ffffff';
+      remoteCursorsManager.updateCursor(sessionId, userName, x, y, color);
     } else {
-      console.warn('⚠️ remoteCursorsManager not initialized');
+      console.warn('⚠️ remoteCursorsManager or remoteTrailsManager not initialized');
     }
   }
 
