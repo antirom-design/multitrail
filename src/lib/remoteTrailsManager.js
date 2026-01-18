@@ -20,7 +20,7 @@ export class RemoteTrailsManager {
    */
   addUser(userId, userName, settings = null) {
     if (!this.userTrails.has(userId)) {
-      const trailManager = new TrailManager(5000) // 5 second lifetime
+      const trailManager = new TrailManager(10000) // 10 second lifetime
       this.userTrails.set(userId, trailManager)
     }
 
