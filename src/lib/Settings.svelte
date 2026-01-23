@@ -15,6 +15,8 @@
     fontSize: 24
   };
 
+  export let roomMode = 'trail'; // 'trail' or 'tafel'
+
   const dispatch = createEventDispatcher();
 
   function updateSettings() {
@@ -37,19 +39,21 @@
     <div class="panel">
       <h2>Settings</h2>
 
-      <div class="control">
-        <label>
-          Trail Lifetime: {(settings.lifetimeMs / 1000).toFixed(1)}s
-          <input
-            type="range"
-            min="1000"
-            max="30000"
-            step="500"
-            bind:value={settings.lifetimeMs}
-            on:input={updateSettings}
-          />
-        </label>
-      </div>
+      {#if roomMode === 'trail'}
+        <div class="control">
+          <label>
+            Trail Lifetime: {(settings.lifetimeMs / 1000).toFixed(1)}s
+            <input
+              type="range"
+              min="1000"
+              max="30000"
+              step="500"
+              bind:value={settings.lifetimeMs}
+              on:input={updateSettings}
+            />
+          </label>
+        </div>
+      {/if}
 
       <div class="control">
         <label>
@@ -77,84 +81,86 @@
         </label>
       </div>
 
-      <div class="control">
-        <label>
-          Draw Style
-          <select bind:value={settings.drawStyle} on:change={updateSettings}>
-            <option value="line">Connected Line</option>
-            <option value="dots">Dots</option>
-          </select>
-        </label>
-      </div>
-
-      <div class="control">
-        <label>
-          <input
-            type="checkbox"
-            bind:checked={settings.speedSettings.enabled}
-            on:change={updateSettings}
-          />
-          Speed-Based Width
-        </label>
-      </div>
-
-      {#if settings.speedSettings.enabled}
-        <div class="control indent">
+      {#if roomMode === 'trail'}
+        <div class="control">
           <label>
-            Min Width: {settings.speedSettings.minWidth}px
-            <input
-              type="range"
-              min="1"
-              max="20"
-              step="1"
-              bind:value={settings.speedSettings.minWidth}
-              on:input={updateSettings}
-            />
+            Draw Style
+            <select bind:value={settings.drawStyle} on:change={updateSettings}>
+              <option value="line">Connected Line</option>
+              <option value="dots">Dots</option>
+            </select>
           </label>
         </div>
 
-        <div class="control indent">
+        <div class="control">
           <label>
-            Max Width: {settings.speedSettings.maxWidth}px
             <input
-              type="range"
-              min="1"
-              max="40"
-              step="1"
-              bind:value={settings.speedSettings.maxWidth}
-              on:input={updateSettings}
+              type="checkbox"
+              bind:checked={settings.speedSettings.enabled}
+              on:change={updateSettings}
             />
+            Speed-Based Width
           </label>
         </div>
 
-        <div class="control indent">
+        {#if settings.speedSettings.enabled}
+          <div class="control indent">
+            <label>
+              Min Width: {settings.speedSettings.minWidth}px
+              <input
+                type="range"
+                min="1"
+                max="20"
+                step="1"
+                bind:value={settings.speedSettings.minWidth}
+                on:input={updateSettings}
+              />
+            </label>
+          </div>
+
+          <div class="control indent">
+            <label>
+              Max Width: {settings.speedSettings.maxWidth}px
+              <input
+                type="range"
+                min="1"
+                max="40"
+                step="1"
+                bind:value={settings.speedSettings.maxWidth}
+                on:input={updateSettings}
+              />
+            </label>
+          </div>
+
+          <div class="control indent">
+            <label>
+              Sensitivity: {settings.speedSettings.sensitivity.toFixed(1)}
+              <input
+                type="range"
+                min="0.1"
+                max="5"
+                step="0.1"
+                bind:value={settings.speedSettings.sensitivity}
+                on:input={updateSettings}
+              />
+            </label>
+          </div>
+        {/if}
+
+        <div class="control">
           <label>
-            Sensitivity: {settings.speedSettings.sensitivity.toFixed(1)}
+            Text Size: {settings.fontSize}px
             <input
               type="range"
-              min="0.1"
-              max="5"
-              step="0.1"
-              bind:value={settings.speedSettings.sensitivity}
+              min="12"
+              max="72"
+              step="2"
+              bind:value={settings.fontSize}
               on:input={updateSettings}
             />
           </label>
         </div>
       {/if}
-
-      <div class="control">
-        <label>
-          Text Size: {settings.fontSize}px
-          <input
-            type="range"
-            min="12"
-            max="72"
-            step="2"
-            bind:value={settings.fontSize}
-            on:input={updateSettings}
-          />
-        </label>
-      </div>
 
       <div class="values-display">
         <h3>Current Values:</h3>

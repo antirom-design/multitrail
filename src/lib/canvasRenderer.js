@@ -259,6 +259,153 @@ export function setupHighDPICanvas(canvas, width, height) {
 }
 
 /**
+ * Draw all Tafel (blackboard) strokes
+ * @param {CanvasRenderingContext2D} ctx - Canvas context
+ * @param {Array} strokes - Array of stroke objects
+ */
+export function drawTafelStrokes(ctx, strokes) {
+  if (!strokes || strokes.length === 0) return
+
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
+
+  for (const stroke of strokes) {
+    const { points, color, strokeWidth, tool } = stroke
+
+    if (points.length === 0) continue
+
+    ctx.strokeStyle = color
+    ctx.fillStyle = color
+
+    if (tool === 'brush') {
+      // Brush uses speed-based variable width
+      drawVariableWidthTafelStroke(ctx, points, strokeWidth)
+    } else {
+      // Pen uses fixed width
+      ctx.lineWidth = strokeWidth
+      drawFixedWidthTafelStroke(ctx, points)
+    }
+  }
+}
+
+/**
+ * Draw a fixed width stroke for Tafel
+ * @param {CanvasRenderingContext2D} ctx - Canvas context
+ * @param {Array} points - Array of points
+ */
+function drawFixedWidthTafelStroke(ctx, points) {
+  if (points.length === 1) {
+    // Single point - draw a dot
+    ctx.beginPath()
+    ctx.arc(points[0].x, points[0].y, ctx.lineWidth / 2, 0, Math.PI * 2)
+    ctx.fill()
+    return
+  }
+
+  ctx.beginPath()
+  ctx.moveTo(points[0].x, points[0].y)
+
+  if (points.length === 2) {
+    ctx.lineTo(points[1].x, points[1].y)
+  } else {
+    for (let i = 1; i < points.length - 1; i++) {
+      const current = points[i]
+      const next = points[i + 1]
+      const midX = (current.x + next.x) / 2
+      const midY = (current.y + next.y) / 2
+      ctx.quadraticCurveTo(current.x, current.y, midX, midY)
+    }
+    const last = points[points.length - 1]
+    ctx.lineTo(last.x, last.y)
+  }
+
+  ctx.stroke()
+}
+
+/**
+ * Draw variable width stroke for Tafel brush tool
+ * @param {CanvasRenderingContext2D} ctx - Canvas context
+ * @param {Array} points - Array of points with speed
+ * @param {number} baseWidth - Base stroke width
+ */
+function drawVariableWidthTafelStroke(ctx, points, baseWidth) {
+  if (points.length === 1) {
+    const width = calculateBrushWidth(points[0].speed || 0, baseWidth)
+    ctx.beginPath()
+    ctx.arc(points[0].x, points[0].y, width / 2, 0, Math.PI * 2)
+    ctx.fill()
+    return
+  }
+
+  // Draw each segment with its own width
+  for (let i = 0; i < points.length - 1; i++) {
+    const current = points[i]
+    const next = points[i + 1]
+
+    const avgSpeed = ((current.speed || 0) + (next.speed || 0)) / 2
+    const width = calculateBrushWidth(avgSpeed, baseWidth)
+
+    ctx.lineWidth = width
+    ctx.beginPath()
+    ctx.moveTo(current.x, current.y)
+    ctx.lineTo(next.x, next.y)
+    ctx.stroke()
+  }
+}
+
+/**
+ * Calculate brush width based on speed
+ * @param {number} speed - Speed value
+ * @param {number} baseWidth - Base width
+ * @returns {number} Calculated width
+ */
+function calculateBrushWidth(speed, baseWidth) {
+  const minWidth = baseWidth * 0.3
+  const maxWidth = baseWidth * 2.5
+  const sensitivity = 1.0
+
+  const speedScale = speed * sensitivity
+  const speedFactor = Math.exp(-speedScale)
+
+  return Math.max(minWidth, Math.min(maxWidth, minWidth + (maxWidth - minWidth) * speedFactor))
+}
+
+/**
+ * Draw eraser cursor indicator
+ * @param {CanvasRenderingContext2D} ctx - Canvas context
+ * @param {number} x - X coordinate
+ * @param {number} y - Y coordinate
+ * @param {number} radius - Eraser radius
+ */
+export function drawEraserCursor(ctx, x, y, radius = 20) {
+  ctx.save()
+
+  // Draw circle outline
+  ctx.strokeStyle = 'rgba(255, 100, 100, 0.8)'
+  ctx.lineWidth = 2
+  ctx.setLineDash([4, 4])
+
+  ctx.beginPath()
+  ctx.arc(x, y, radius, 0, Math.PI * 2)
+  ctx.stroke()
+
+  // Draw X in center
+  ctx.setLineDash([])
+  ctx.strokeStyle = 'rgba(255, 100, 100, 0.6)'
+  ctx.lineWidth = 1.5
+  const xSize = 6
+
+  ctx.beginPath()
+  ctx.moveTo(x - xSize, y - xSize)
+  ctx.lineTo(x + xSize, y + xSize)
+  ctx.moveTo(x + xSize, y - xSize)
+  ctx.lineTo(x - xSize, y + xSize)
+  ctx.stroke()
+
+  ctx.restore()
+}
+
+/**
  * Draw a remote cursor with username label
  * @param {CanvasRenderingContext2D} ctx - Canvas context
  * @param {number} x - X coordinate

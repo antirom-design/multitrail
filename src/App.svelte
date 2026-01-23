@@ -8,7 +8,10 @@
   import UserList from './lib/UserList.svelte';
   import OnlineIndicator from './lib/OnlineIndicator.svelte';
   import RoomInfo from './lib/RoomInfo.svelte';
+  import TafelToolbar from './lib/TafelToolbar.svelte';
+  import HostControls from './lib/HostControls.svelte';
   import { createWebSocket } from './lib/websocket.js';
+  import { TafelManager } from './lib/tafelManager.js';
 
   const BACKEND_URL = import.meta.env.PROD
     ? 'wss://funkhaus-websocket.onrender.com'
@@ -71,6 +74,11 @@
   let hasJoinedHouse = false; // Track if we've joined to prevent infinite loop
   let showUserList = false; // Toggle for user list overlay
   let autoJoinRoomCode = null; // Room code from QR scan
+
+  // Tafel mode state
+  let roomMode = 'trail'; // 'trail' or 'tafel'
+  let activeTool = 'pen'; // 'pen', 'brush', 'eraser'
+  let tafelManager = null;
 
   function toggleUserList() {
     showUserList = !showUserList;
@@ -223,6 +231,10 @@
 
   function handleLeaveRoom() {
     console.log('🚪 Leaving room...');
+
+    // Remove mode change listener
+    window.removeEventListener('modeChange', handleRemoteModeChange);
+
     if (websocket) {
       console.log('🔌 Disconnecting WebSocket...');
       websocket.disconnect();
@@ -236,6 +248,15 @@
       sessionId: null,
       isHousemaster: false
     };
+
+    // Reset Tafel state
+    roomMode = 'trail';
+    activeTool = 'pen';
+    if (tafelManager) {
+      tafelManager.clearAll();
+      tafelManager = null;
+    }
+
     appState = STATES.ROOM_SELECT;
     console.log('🔄 State changed to ROOM_SELECT');
     // Exit fullscreen when leaving room
@@ -249,6 +270,10 @@
     console.log('🔌 roomCode:', roomCode);
     console.log('🔌 user:', user);
     console.log('🔌 BACKEND_URL:', BACKEND_URL);
+
+    // Initialize TafelManager
+    tafelManager = new TafelManager();
+    console.log('📝 TafelManager created');
 
     try {
       console.log('🔌 Creating WebSocket...');
@@ -284,9 +309,31 @@
         }
       });
       console.log('✅ WebSocket subscription setup complete');
+
+      // Set up mode change listener
+      setupModeChangeListener();
     } catch (error) {
       console.error('❌ Error in WebSocket initialization:', error);
       throw error;
+    }
+  }
+
+  function setupModeChangeListener() {
+    window.addEventListener('modeChange', handleRemoteModeChange);
+  }
+
+  function handleRemoteModeChange(event) {
+    console.log('🔄 Received mode change:', event.detail);
+    const { mode, sessionId: senderId } = event.detail;
+    // Only update if we're not the sender
+    if (senderId !== roomState.sessionId) {
+      roomMode = mode;
+      // Clear tafel when mode changes
+      if (tafelManager) {
+        tafelManager.clearAll();
+      }
+      // Reset tool to pen
+      activeTool = 'pen';
     }
   }
 
@@ -302,6 +349,83 @@
         fontSize: settings.fontSize
       });
     }
+  }
+
+  // Tafel Toolbar handlers
+  function handleToolChange(event) {
+    activeTool = event.detail;
+    console.log('🔧 Tool changed to:', activeTool);
+  }
+
+  function handleColorChange(event) {
+    settings.color = event.detail;
+    settings = { ...settings };
+    console.log('🎨 Color changed to:', settings.color);
+
+    // Broadcast color change
+    if (appState === STATES.IN_ROOM && websocket) {
+      websocket.sendUserColorChange(settings.color);
+    }
+  }
+
+  // Host Controls handlers
+  function handleModeChange(event) {
+    const newMode = event.detail;
+    console.log('🔄 Mode change requested:', newMode);
+
+    roomMode = newMode;
+
+    // Clear tafel when mode changes
+    if (tafelManager) {
+      tafelManager.clearAll();
+    }
+
+    // Reset tool to pen
+    activeTool = 'pen';
+
+    // Broadcast mode change
+    if (websocket) {
+      websocket.sendModeChange(newMode);
+    }
+  }
+
+  function handleClearTafel() {
+    console.log('🧹 Clear tafel requested');
+
+    if (tafelManager) {
+      tafelManager.clearAll();
+    }
+
+    // Broadcast clear
+    if (websocket) {
+      websocket.sendTafelClear();
+    }
+  }
+
+  // Canvas Tafel handlers
+  function handleTafelStrokeComplete(event) {
+    const stroke = event.detail;
+    console.log('📝 Tafel stroke complete:', stroke.strokeId);
+
+    // Add user info to stroke
+    stroke.userId = roomState.sessionId;
+    stroke.userName = user?.displayName || 'Unknown';
+
+    // Add to local tafel manager
+    if (tafelManager) {
+      tafelManager.addStroke(stroke);
+    }
+
+    // Broadcast to other clients
+    if (websocket) {
+      websocket.sendTafelStroke(stroke);
+    }
+  }
+
+  function handleTafelErase(event) {
+    const strokeIds = event.detail;
+    console.log('🗑️ Tafel erase:', strokeIds);
+    // Already deleted locally in Canvas.svelte, just log
   }
 </script>
 
@@ -326,9 +450,30 @@
       {settings}
       {websocket}
       isMultiplayerMode={true}
+      {roomMode}
+      {activeTool}
+      {tafelManager}
+      on:tafelStrokeComplete={handleTafelStrokeComplete}
+      on:tafelErase={handleTafelErase}
     />
 
-    <Settings bind:settings on:update={handleSettingsUpdate} />
+    {#if roomMode === 'tafel'}
+      <TafelToolbar
+        {activeTool}
+        activeColor={settings.color}
+        on:toolChange={handleToolChange}
+        on:colorChange={handleColorChange}
+      />
+    {:else}
+      <Settings bind:settings on:update={handleSettingsUpdate} />
+    {/if}
+
+    <HostControls
+      {roomMode}
+      isHousemaster={roomState.isHousemaster}
+      on:modeChange={handleModeChange}
+      on:clearTafel={handleClearTafel}
+    />
 
     <OnlineIndicator
       userCount={roomState.users.length}
