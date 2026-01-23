@@ -116,6 +116,36 @@ export function createWebSocket() {
         window.dispatchEvent(new CustomEvent('remoteStrokeEnd', { detail: data }))
         break
 
+      case 'modeChange':
+        console.log('🔄 Dispatching modeChange event:', data);
+        window.dispatchEvent(new CustomEvent('modeChange', { detail: data }))
+        break
+
+      case 'tafelStroke':
+        console.log('📝 Dispatching tafelStroke event:', data);
+        window.dispatchEvent(new CustomEvent('tafelStroke', { detail: data }))
+        break
+
+      case 'tafelErase':
+        console.log('🗑️ Dispatching tafelErase event:', data);
+        window.dispatchEvent(new CustomEvent('tafelErase', { detail: data }))
+        break
+
+      case 'tafelClear':
+        console.log('🧹 Dispatching tafelClear event:', data);
+        window.dispatchEvent(new CustomEvent('tafelClear', { detail: data }))
+        break
+
+      case 'tafelSync':
+        console.log('📥 Dispatching tafelSync event:', data);
+        window.dispatchEvent(new CustomEvent('tafelSync', { detail: data }))
+        break
+
+      case 'userColorChange':
+        console.log('🎨 Dispatching userColorChange event:', data);
+        window.dispatchEvent(new CustomEvent('userColorChange', { detail: data }))
+        break
+
       case 'error':
         console.error('❌ Server error:', message.message)
         break
@@ -186,6 +216,32 @@ export function createWebSocket() {
     send('settingsUpdate', { settings })
   }
 
+  // Tafel mode methods
+  function sendModeChange(mode) {
+    console.log('🔄 sendModeChange() called - mode:', mode);
+    send('modeChange', { mode })
+  }
+
+  function sendTafelStroke(stroke) {
+    console.log('📝 sendTafelStroke() called:', stroke.strokeId);
+    send('tafelStroke', { stroke })
+  }
+
+  function sendTafelErase(strokeIds) {
+    console.log('🗑️ sendTafelErase() called - strokeIds:', strokeIds);
+    send('tafelErase', { strokeIds })
+  }
+
+  function sendTafelClear() {
+    console.log('🧹 sendTafelClear() called');
+    send('tafelClear', {})
+  }
+
+  function sendUserColorChange(color) {
+    console.log('🎨 sendUserColorChange() called - color:', color);
+    send('userColorChange', { color })
+  }
+
   function disconnect() {
     if (ws) {
       clearTimeout(reconnectTimeout)
@@ -215,6 +271,11 @@ export function createWebSocket() {
     sendStrokeEnd,
     sendCursor,
     sendSettings,
+    sendModeChange,
+    sendTafelStroke,
+    sendTafelErase,
+    sendTafelClear,
+    sendUserColorChange,
     disconnect,
     on
   }
