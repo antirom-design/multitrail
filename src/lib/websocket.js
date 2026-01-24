@@ -136,6 +136,11 @@ export function createWebSocket() {
         window.dispatchEvent(new CustomEvent('tafelClear', { detail: data }))
         break
 
+      case 'tafelClearMine':
+        console.log('🧹 Dispatching tafelClearMine event:', data);
+        window.dispatchEvent(new CustomEvent('tafelClearMine', { detail: data }))
+        break
+
       case 'tafelSync':
         console.log('📥 Dispatching tafelSync event:', data);
         window.dispatchEvent(new CustomEvent('tafelSync', { detail: data }))
@@ -237,6 +242,11 @@ export function createWebSocket() {
     send('tafelClear', {})
   }
 
+  function sendTafelClearMine() {
+    console.log('🧹 sendTafelClearMine() called');
+    send('tafelClearMine', {})
+  }
+
   function sendUserColorChange(color) {
     console.log('🎨 sendUserColorChange() called - color:', color);
     send('userColorChange', { color })
@@ -275,6 +285,7 @@ export function createWebSocket() {
     sendTafelStroke,
     sendTafelErase,
     sendTafelClear,
+    sendTafelClearMine,
     sendUserColorChange,
     disconnect,
     on

@@ -232,8 +232,11 @@
   function handleLeaveRoom() {
     console.log('🚪 Leaving room...');
 
-    // Remove mode change listener
+    // Remove event listeners
     window.removeEventListener('modeChange', handleRemoteModeChange);
+    window.removeEventListener('tafelClearMine', handleRemoteTafelClearMine);
+    window.removeEventListener('tafelStroke', handleRemoteTafelStroke);
+    window.removeEventListener('tafelClear', handleRemoteTafelClear);
 
     if (websocket) {
       console.log('🔌 Disconnecting WebSocket...');
@@ -320,6 +323,9 @@
 
   function setupModeChangeListener() {
     window.addEventListener('modeChange', handleRemoteModeChange);
+    window.addEventListener('tafelClearMine', handleRemoteTafelClearMine);
+    window.addEventListener('tafelStroke', handleRemoteTafelStroke);
+    window.addEventListener('tafelClear', handleRemoteTafelClear);
   }
 
   function handleRemoteModeChange(event) {
@@ -334,6 +340,29 @@
       }
       // Reset tool to pen
       activeTool = 'pen';
+    }
+  }
+
+  function handleRemoteTafelClearMine(event) {
+    console.log('🧹 Received tafelClearMine:', event.detail);
+    const { sessionId: senderId } = event.detail;
+    if (tafelManager && senderId) {
+      tafelManager.clearUserStrokes(senderId);
+    }
+  }
+
+  function handleRemoteTafelStroke(event) {
+    console.log('📝 Received tafelStroke:', event.detail);
+    const { stroke } = event.detail;
+    if (tafelManager && stroke) {
+      tafelManager.addStroke(stroke);
+    }
+  }
+
+  function handleRemoteTafelClear(event) {
+    console.log('🧹 Received tafelClear:', event.detail);
+    if (tafelManager) {
+      tafelManager.clearAll();
     }
   }
 
@@ -402,6 +431,19 @@
     }
   }
 
+  function handleClearMyDrawings() {
+    console.log('🧹 Clear my drawings requested');
+
+    if (tafelManager && roomState.sessionId) {
+      tafelManager.clearUserStrokes(roomState.sessionId);
+    }
+
+    // Broadcast to others
+    if (websocket) {
+      websocket.sendTafelClearMine();
+    }
+  }
+
   // Canvas Tafel handlers
   function handleTafelStrokeComplete(event) {
     const stroke = event.detail;
@@ -463,6 +505,7 @@
         activeColor={settings.color}
         on:toolChange={handleToolChange}
         on:colorChange={handleColorChange}
+        on:clearMyDrawings={handleClearMyDrawings}
       />
     {:else}
       <Settings bind:settings on:update={handleSettingsUpdate} />
