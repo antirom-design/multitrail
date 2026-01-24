@@ -79,10 +79,18 @@ export function createWebSocket() {
     switch (type) {
       case 'joined':
         console.log('✅ Joined room as', data.isHousemaster ? 'Housemaster' : 'Member');
+        console.log('📋 Room mode:', data.mode, 'Tafel strokes:', data.tafelStrokes?.length || 0);
         update(state => ({
           ...state,
           isHousemaster: data.isHousemaster,
           rooms: data.rooms || []
+        }))
+        // Dispatch initial state event for mode and tafel strokes
+        window.dispatchEvent(new CustomEvent('roomInitialState', {
+          detail: {
+            mode: data.mode || 'trail',
+            tafelStrokes: data.tafelStrokes || []
+          }
         }))
         break
 

@@ -237,6 +237,7 @@
     window.removeEventListener('tafelClearMine', handleRemoteTafelClearMine);
     window.removeEventListener('tafelStroke', handleRemoteTafelStroke);
     window.removeEventListener('tafelClear', handleRemoteTafelClear);
+    window.removeEventListener('roomInitialState', handleRoomInitialState);
 
     if (websocket) {
       console.log('🔌 Disconnecting WebSocket...');
@@ -326,6 +327,7 @@
     window.addEventListener('tafelClearMine', handleRemoteTafelClearMine);
     window.addEventListener('tafelStroke', handleRemoteTafelStroke);
     window.addEventListener('tafelClear', handleRemoteTafelClear);
+    window.addEventListener('roomInitialState', handleRoomInitialState);
   }
 
   function handleRemoteModeChange(event) {
@@ -363,6 +365,21 @@
     console.log('🧹 Received tafelClear:', event.detail);
     if (tafelManager) {
       tafelManager.clearAll();
+    }
+  }
+
+  function handleRoomInitialState(event) {
+    console.log('📋 Received room initial state:', event.detail);
+    const { mode, tafelStrokes } = event.detail;
+
+    // Set the room mode
+    roomMode = mode;
+    console.log('🔄 Set room mode to:', mode);
+
+    // Import existing tafel strokes
+    if (tafelManager && tafelStrokes && tafelStrokes.length > 0) {
+      tafelManager.importStrokes(tafelStrokes);
+      console.log('📝 Imported', tafelStrokes.length, 'tafel strokes');
     }
   }
 
