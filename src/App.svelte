@@ -332,17 +332,18 @@
 
   function handleRemoteModeChange(event) {
     console.log('🔄 Received mode change:', event.detail);
-    const { mode, sessionId: senderId } = event.detail;
-    // Only update if we're not the sender
-    if (senderId !== roomState.sessionId) {
-      roomMode = mode;
-      // Clear tafel when mode changes
-      if (tafelManager) {
-        tafelManager.clearAll();
-      }
-      // Reset tool to pen
-      activeTool = 'pen';
+    const { mode } = event.detail;
+
+    // Always apply mode change from server (includes our own echo back)
+    roomMode = mode;
+
+    // Clear tafel when mode changes
+    if (tafelManager) {
+      tafelManager.clearAll();
     }
+
+    // Reset tool to pen
+    activeTool = 'pen';
   }
 
   function handleRemoteTafelClearMine(event) {
