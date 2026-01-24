@@ -134,6 +134,11 @@ export function createWebSocket() {
         window.dispatchEvent(new CustomEvent('tafelStroke', { detail: data }))
         break
 
+      case 'tafelDrawing':
+        // Live drawing points from remote user
+        window.dispatchEvent(new CustomEvent('tafelDrawing', { detail: data }))
+        break
+
       case 'tafelErase':
         console.log('🗑️ Dispatching tafelErase event:', data);
         window.dispatchEvent(new CustomEvent('tafelErase', { detail: data }))
@@ -240,6 +245,11 @@ export function createWebSocket() {
     send('tafelStroke', { stroke })
   }
 
+  function sendTafelDrawing(strokeId, points, strokeInfo) {
+    // Stream live drawing points in tafel mode
+    send('tafelDrawing', { strokeId, points, strokeInfo })
+  }
+
   function sendTafelErase(strokeIds) {
     console.log('🗑️ sendTafelErase() called - strokeIds:', strokeIds);
     send('tafelErase', { strokeIds })
@@ -291,6 +301,7 @@ export function createWebSocket() {
     sendSettings,
     sendModeChange,
     sendTafelStroke,
+    sendTafelDrawing,
     sendTafelErase,
     sendTafelClear,
     sendTafelClearMine,

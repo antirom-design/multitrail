@@ -45,6 +45,13 @@
   let eraserPath = []; // Points for eraser hit detection
   const ERASER_RADIUS = 20;
 
+  // Remote in-progress tafel strokes (strokeId -> stroke data)
+  let remoteTafelStrokes = new Map();
+
+  // Tafel drawing buffer for streaming points
+  let tafelPointBuffer = [];
+  let tafelBufferTimeout = null;
+
   // Update trail manager when settings change
   $: if (trailManager) {
     trailManager.setLifetime(settings.lifetimeMs);
@@ -118,9 +125,14 @@
       window.removeEventListener('remoteCursor', handleRemoteCursor);
       window.removeEventListener('remoteSettings', handleRemoteSettings);
       window.removeEventListener('tafelStroke', handleRemoteTafelStroke);
+      window.removeEventListener('tafelDrawing', handleRemoteTafelDrawing);
       window.removeEventListener('tafelErase', handleRemoteTafelErase);
       window.removeEventListener('tafelClear', handleRemoteTafelClear);
       window.removeEventListener('tafelSync', handleTafelSync);
+    }
+    // Clean up tafel buffer timeout
+    if (tafelBufferTimeout) {
+      clearTimeout(tafelBufferTimeout);
     }
   });
 
@@ -144,9 +156,15 @@
           const strokes = tafelManager.getAllStrokes();
           drawTafelStrokes(ctx, strokes);
 
-          // Draw current stroke being drawn (if any)
+          // Draw current stroke being drawn locally (if any)
           if (currentTafelStroke && currentTafelStroke.points.length > 0) {
             drawTafelStrokes(ctx, [currentTafelStroke]);
+          }
+
+          // Draw remote in-progress strokes
+          if (remoteTafelStrokes.size > 0) {
+            const remoteStrokes = Array.from(remoteTafelStrokes.values());
+            drawTafelStrokes(ctx, remoteStrokes);
           }
         }
 
@@ -218,6 +236,8 @@
     // Tafel mode listeners
     window.addEventListener('tafelStroke', handleRemoteTafelStroke);
     console.log('✅ tafelStroke listener added');
+    window.addEventListener('tafelDrawing', handleRemoteTafelDrawing);
+    console.log('✅ tafelDrawing listener added');
     window.addEventListener('tafelErase', handleRemoteTafelErase);
     console.log('✅ tafelErase listener added');
     window.addEventListener('tafelClear', handleRemoteTafelClear);
@@ -231,6 +251,34 @@
     const { stroke } = event.detail;
     if (tafelManager) {
       tafelManager.addStroke(stroke);
+    }
+    // Remove the in-progress stroke now that we have the final version
+    if (stroke && stroke.strokeId) {
+      remoteTafelStrokes.delete(stroke.strokeId);
+    }
+  }
+
+  function handleRemoteTafelDrawing(event) {
+    // Live drawing points from remote user
+    const { sessionId, userName, strokeId, points, strokeInfo } = event.detail;
+
+    if (!remoteTafelStrokes.has(strokeId)) {
+      // New stroke starting
+      remoteTafelStrokes.set(strokeId, {
+        strokeId,
+        sessionId,
+        userName,
+        tool: strokeInfo?.tool || 'pen',
+        color: strokeInfo?.color || '#ffffff',
+        strokeWidth: strokeInfo?.strokeWidth || 4,
+        points: []
+      });
+    }
+
+    // Add new points to the stroke
+    const stroke = remoteTafelStrokes.get(strokeId);
+    if (stroke && points) {
+      stroke.points.push(...points);
     }
   }
 
@@ -247,6 +295,8 @@
     if (tafelManager) {
       tafelManager.clearAll();
     }
+    // Also clear any in-progress remote strokes
+    remoteTafelStrokes.clear();
   }
 
   function handleTafelSync(event) {
@@ -425,6 +475,7 @@
     } else {
       // Pen or Brush tool - start new stroke
       const strokeId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const firstPoint = { x, y, speed: 0, timestamp: Date.now() };
       currentTafelStroke = {
         strokeId,
         userId: null, // Will be set by App.svelte
@@ -432,10 +483,15 @@
         tool: activeTool,
         color: settings.color,
         strokeWidth: settings.strokeWidth,
-        points: [{ x, y, speed: 0, timestamp: Date.now() }],
+        points: [firstPoint],
         createdAt: Date.now()
       };
       console.log('📝 Started tafel stroke:', strokeId);
+
+      // Stream first point to other users
+      if (isMultiplayerMode && websocket) {
+        bufferTafelPoint(firstPoint);
+      }
     }
   }
 
@@ -502,8 +558,42 @@
       const dist = Math.sqrt(dx * dx + dy * dy);
       const speed = dt > 0 ? dist / dt : 0;
 
-      currentTafelStroke.points.push({ x, y, speed, timestamp: now });
+      const newPoint = { x, y, speed, timestamp: now };
+      currentTafelStroke.points.push(newPoint);
+
+      // Stream point to other users
+      if (isMultiplayerMode && websocket) {
+        bufferTafelPoint(newPoint);
+      }
     }
+  }
+
+  // Tafel point buffering for live streaming
+  function bufferTafelPoint(point) {
+    tafelPointBuffer.push(point);
+
+    // Send batch every 32ms or when buffer reaches 5 points
+    if (tafelPointBuffer.length >= 5) {
+      flushTafelBuffer();
+    } else if (!tafelBufferTimeout) {
+      tafelBufferTimeout = setTimeout(flushTafelBuffer, 32);
+    }
+  }
+
+  function flushTafelBuffer() {
+    if (tafelPointBuffer.length > 0 && websocket && currentTafelStroke) {
+      websocket.sendTafelDrawing(
+        currentTafelStroke.strokeId,
+        [...tafelPointBuffer],
+        {
+          tool: currentTafelStroke.tool,
+          color: currentTafelStroke.color,
+          strokeWidth: currentTafelStroke.strokeWidth
+        }
+      );
+      tafelPointBuffer = [];
+    }
+    tafelBufferTimeout = null;
   }
 
   function handleMouseUp() {
@@ -532,6 +622,9 @@
       // Clear eraser path
       eraserPath = [];
     } else if (currentTafelStroke && currentTafelStroke.points.length > 0) {
+      // Flush any remaining buffered points
+      flushTafelBuffer();
+
       // Finalize the stroke - dispatch to App.svelte to handle
       console.log('📝 Finalizing tafel stroke:', currentTafelStroke.strokeId);
       dispatch('tafelStrokeComplete', currentTafelStroke);
