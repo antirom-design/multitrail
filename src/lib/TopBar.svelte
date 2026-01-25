@@ -11,6 +11,8 @@
   let copied = false;
   let showQRCode = false;
   let showSettings = false;
+  let showModeConfirm = false;
+  let pendingMode = null;
 
   function copyCode(e) {
     if (e) e.stopPropagation();
@@ -35,9 +37,22 @@
     showQRCode = false;
   }
 
-  function toggleMode() {
-    const newMode = roomMode === 'trail' ? 'tafel' : 'trail';
-    dispatch('modeChange', newMode);
+  function requestModeChange() {
+    pendingMode = roomMode === 'trail' ? 'tafel' : 'trail';
+    showModeConfirm = true;
+  }
+
+  function confirmModeChange() {
+    showModeConfirm = false;
+    if (pendingMode) {
+      dispatch('modeChange', pendingMode);
+    }
+    pendingMode = null;
+  }
+
+  function cancelModeChange() {
+    showModeConfirm = false;
+    pendingMode = null;
   }
 
   function updateSettings() {
@@ -80,7 +95,7 @@
     <button
       class="mode-btn"
       class:tafel={roomMode === 'tafel'}
-      on:click={toggleMode}
+      on:click={requestModeChange}
       title={roomMode === 'trail' ? 'Switch to Tafel' : 'Switch to Trail'}
     >
       {#if roomMode === 'trail'}
@@ -159,6 +174,20 @@
         </div>
       {/if}
     {/if}
+  </div>
+{/if}
+
+<!-- Mode change confirmation -->
+{#if showModeConfirm}
+  <div class="confirm-modal" on:click={cancelModeChange} role="dialog">
+    <div class="confirm-content" on:click|stopPropagation role="alertdialog">
+      <h3>Switch to {pendingMode === 'tafel' ? 'Tafel' : 'Multitrail'}?</h3>
+      <p>This will delete the current board.</p>
+      <div class="confirm-buttons">
+        <button class="cancel-btn" on:click={cancelModeChange}>Cancel</button>
+        <button class="confirm-btn" on:click={confirmModeChange}>Switch</button>
+      </div>
+    </div>
   </div>
 {/if}
 
@@ -418,6 +447,76 @@
     padding: 8px;
     border-radius: 4px;
     margin: 0;
+  }
+
+  /* Confirmation modal */
+  .confirm-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+  }
+
+  .confirm-content {
+    background: rgba(30, 30, 30, 0.95);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    border-radius: 16px;
+    padding: 24px;
+    max-width: 300px;
+    text-align: center;
+    backdrop-filter: blur(20px);
+  }
+
+  .confirm-content h3 {
+    margin: 0 0 8px 0;
+    color: white;
+    font-size: 1.1rem;
+  }
+
+  .confirm-content p {
+    margin: 0 0 20px 0;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.9rem;
+  }
+
+  .confirm-buttons {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+  }
+
+  .cancel-btn, .confirm-btn {
+    padding: 10px 20px;
+    border-radius: 20px;
+    border: none;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.15s;
+  }
+
+  .cancel-btn {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+  }
+
+  .cancel-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+  }
+
+  .confirm-btn {
+    background: #667eea;
+    color: white;
+  }
+
+  .confirm-btn:hover {
+    background: #5a6fd6;
   }
 
   @media (max-width: 600px) {

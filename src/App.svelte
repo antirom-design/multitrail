@@ -74,7 +74,7 @@
   let autoJoinRoomCode = null; // Room code from QR scan
 
   // Tafel mode state
-  let roomMode = 'trail'; // 'trail' or 'tafel'
+  let roomMode = 'tafel'; // 'trail' or 'tafel' - tafel is default
   let activeTool = 'pen'; // 'pen', 'brush', 'eraser'
   let tafelManager = null;
 
@@ -413,6 +413,12 @@
     }
   }
 
+  function handleBrushSizeChange(event) {
+    settings.strokeWidth = event.detail;
+    settings = { ...settings };
+    console.log('📏 Brush size changed to:', settings.strokeWidth);
+  }
+
   // Host Controls handlers
   function handleModeChange(event) {
     const newMode = event.detail;
@@ -528,8 +534,10 @@
       <TafelToolbar
         {activeTool}
         activeColor={settings.color}
+        brushSize={settings.strokeWidth}
         on:toolChange={handleToolChange}
         on:colorChange={handleColorChange}
+        on:brushSizeChange={handleBrushSizeChange}
         on:clearMyDrawings={handleClearMyDrawings}
       />
     {/if}
