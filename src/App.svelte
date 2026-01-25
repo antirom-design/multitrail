@@ -1,15 +1,13 @@
 <script>
   import { onMount } from 'svelte';
   import Canvas from './lib/Canvas.svelte';
-  import Settings from './lib/Settings.svelte';
   import TestScreen from './lib/TestScreen.svelte';
   import NameInput from './lib/NameInput.svelte';
   import RoomJoin from './lib/RoomJoin.svelte';
   import UserList from './lib/UserList.svelte';
   import OnlineIndicator from './lib/OnlineIndicator.svelte';
-  import RoomInfo from './lib/RoomInfo.svelte';
+  import TopBar from './lib/TopBar.svelte';
   import TafelToolbar from './lib/TafelToolbar.svelte';
-  import HostControls from './lib/HostControls.svelte';
   import { createWebSocket } from './lib/websocket.js';
   import { TafelManager } from './lib/tafelManager.js';
 
@@ -517,6 +515,15 @@
       on:tafelErase={handleTafelErase}
     />
 
+    <TopBar
+      roomCode={roomCode}
+      {roomMode}
+      isHousemaster={roomState.isHousemaster}
+      bind:settings
+      on:modeChange={handleModeChange}
+      on:settingsUpdate={handleSettingsUpdate}
+    />
+
     {#if roomMode === 'tafel'}
       <TafelToolbar
         {activeTool}
@@ -525,16 +532,7 @@
         on:colorChange={handleColorChange}
         on:clearMyDrawings={handleClearMyDrawings}
       />
-    {:else}
-      <Settings bind:settings on:update={handleSettingsUpdate} />
     {/if}
-
-    <HostControls
-      {roomMode}
-      isHousemaster={roomState.isHousemaster}
-      on:modeChange={handleModeChange}
-      on:clearTafel={handleClearTafel}
-    />
 
     <OnlineIndicator
       userCount={roomState.users.length}
@@ -547,8 +545,6 @@
       show={showUserList}
       on:close={closeUserList}
     />
-
-    <RoomInfo roomCode={roomCode} />
 
     <button class="leave-btn" on:click={handleLeaveRoom} aria-label="Leave Room" title="Leave Room">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

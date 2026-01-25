@@ -96,7 +96,7 @@
 <style>
   .tafel-toolbar {
     position: fixed;
-    top: 12px;
+    bottom: 20px;
     left: 50%;
     transform: translateX(-50%);
     display: flex;
@@ -171,7 +171,7 @@
 
   @media (max-width: 600px) {
     .tafel-toolbar {
-      top: 8px;
+      bottom: 12px;
       gap: 4px;
       padding: 5px 8px;
     }
