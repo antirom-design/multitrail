@@ -8,6 +8,10 @@
 
   const dispatch = createEventDispatcher();
 
+  function handleLeave() {
+    dispatch('leave');
+  }
+
   let copied = false;
   let showQRCode = false;
   let showSettings = false;
@@ -120,6 +124,17 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
       <circle cx="12" cy="12" r="3"/>
       <path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/>
+    </svg>
+  </button>
+
+  <div class="divider"></div>
+
+  <!-- Leave button -->
+  <button class="icon-btn leave-btn" on:click={handleLeave} title="Leave Room">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+      <polyline points="16 17 21 12 16 7"/>
+      <line x1="21" y1="12" x2="9" y2="12"/>
     </svg>
   </button>
 </div>
@@ -261,6 +276,11 @@
 
   .icon-btn.active {
     color: #4ecdc4;
+  }
+
+  .icon-btn.leave-btn:hover {
+    color: #ff6b6b;
+    background: rgba(255, 107, 107, 0.15);
   }
 
   .icon-btn svg {

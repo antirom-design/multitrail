@@ -528,6 +528,7 @@
       bind:settings
       on:modeChange={handleModeChange}
       on:settingsUpdate={handleSettingsUpdate}
+      on:leave={handleLeaveRoom}
     />
 
     {#if roomMode === 'tafel'}
@@ -554,13 +555,6 @@
       on:close={closeUserList}
     />
 
-    <button class="leave-btn" on:click={handleLeaveRoom} aria-label="Leave Room" title="Leave Room">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-        <polyline points="16 17 21 12 16 7"/>
-        <line x1="21" y1="12" x2="9" y2="12"/>
-      </svg>
-    </button>
   {/if}
 </main>
 
@@ -571,49 +565,4 @@
     display: block;
   }
 
-  .leave-btn {
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    padding: 12px;
-    background: rgba(255, 59, 48, 0.9);
-    border: none;
-    border-radius: 50%;
-    color: white;
-    cursor: pointer;
-    backdrop-filter: blur(10px);
-    transition: all 0.2s;
-    z-index: 100;
-    box-shadow: 0 4px 12px rgba(255, 59, 48, 0.3);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .leave-btn:hover {
-    background: rgba(255, 59, 48, 1);
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(255, 59, 48, 0.4);
-  }
-
-  .leave-btn:active {
-    transform: translateY(0);
-  }
-
-  .leave-btn svg {
-    display: block;
-  }
-
-  @media (max-width: 600px) {
-    .leave-btn {
-      bottom: 10px;
-      right: 10px;
-      padding: 10px;
-    }
-
-    .leave-btn svg {
-      width: 18px;
-      height: 18px;
-    }
-  }
 </style>

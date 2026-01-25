@@ -135,7 +135,7 @@
   </button>
 
   <button
-    class="tool-btn clear-btn"
+    class="action-btn"
     on:click={clearMyDrawings}
     title="Clear my drawings"
   >
@@ -223,8 +223,29 @@
     height: 18px;
   }
 
-  .tool-btn.clear-btn:hover {
+  .action-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: none;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.5);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    padding: 6px;
+  }
+
+  .action-btn:hover {
     color: #ff6b6b;
+    background: rgba(255, 107, 107, 0.15);
+  }
+
+  .action-btn svg {
+    width: 18px;
+    height: 18px;
   }
 
   .size-dot {
@@ -337,6 +358,17 @@
     }
 
     .tool-btn svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    .action-btn {
+      width: 28px;
+      height: 28px;
+      padding: 5px;
+    }
+
+    .action-btn svg {
       width: 16px;
       height: 16px;
     }
