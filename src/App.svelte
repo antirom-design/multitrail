@@ -531,17 +531,16 @@
       on:leave={handleLeaveRoom}
     />
 
-    {#if roomMode === 'tafel'}
-      <TafelToolbar
-        {activeTool}
-        activeColor={settings.color}
-        brushSize={settings.strokeWidth}
-        on:toolChange={handleToolChange}
-        on:colorChange={handleColorChange}
-        on:brushSizeChange={handleBrushSizeChange}
-        on:clearMyDrawings={handleClearMyDrawings}
-      />
-    {/if}
+    <TafelToolbar
+      {activeTool}
+      activeColor={settings.color}
+      brushSize={settings.strokeWidth}
+      {roomMode}
+      on:toolChange={handleToolChange}
+      on:colorChange={handleColorChange}
+      on:brushSizeChange={handleBrushSizeChange}
+      on:clearMyDrawings={handleClearMyDrawings}
+    />
 
     <OnlineIndicator
       userCount={roomState.users.length}

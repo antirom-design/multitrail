@@ -4,6 +4,7 @@
   export let activeTool = 'pen';
   export let activeColor = '#ffffff';
   export let brushSize = 4; // small=2, medium=4, large=8
+  export let roomMode = 'tafel'; // 'trail' or 'tafel'
 
   const dispatch = createEventDispatcher();
 
@@ -123,28 +124,30 @@
     {/if}
   </button>
 
-  <button
-    class="tool-btn"
-    class:active={activeTool === 'eraser'}
-    on:click={() => selectTool('eraser')}
-    title="Eraser"
-  >
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M20 20H7L3 16c-.56-.56-.56-1.46 0-2.02l10.97-10.97c.56-.56 1.46-.56 2.02 0l5.98 5.98c.56.56.56 1.46 0 2.02L14 19"/>
-    </svg>
-  </button>
+  {#if roomMode === 'tafel'}
+    <button
+      class="tool-btn"
+      class:active={activeTool === 'eraser'}
+      on:click={() => selectTool('eraser')}
+      title="Eraser"
+    >
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M20 20H7L3 16c-.56-.56-.56-1.46 0-2.02l10.97-10.97c.56-.56 1.46-.56 2.02 0l5.98 5.98c.56.56.56 1.46 0 2.02L14 19"/>
+      </svg>
+    </button>
 
-  <button
-    class="action-btn"
-    on:click={clearMyDrawings}
-    title="Clear my drawings"
-  >
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M3 6h18"/>
-      <path d="M8 6V4h8v2"/>
-      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
-    </svg>
-  </button>
+    <button
+      class="action-btn"
+      on:click={clearMyDrawings}
+      title="Clear my drawings"
+    >
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M3 6h18"/>
+        <path d="M8 6V4h8v2"/>
+        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
+      </svg>
+    </button>
+  {/if}
 
   <div class="divider"></div>
 
