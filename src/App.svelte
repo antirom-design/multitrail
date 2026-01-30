@@ -72,6 +72,7 @@
   let hasJoinedHouse = false; // Track if we've joined to prevent infinite loop
   let showUserList = false; // Toggle for user list overlay
   let autoJoinRoomCode = null; // Room code from QR scan
+  let showShareModal = false; // Show share modal after room creation
 
   // Tafel mode state
   let roomMode = 'trail'; // 'trail' or 'tafel' - multitrail is default
@@ -205,6 +206,10 @@
     console.log('✅ State changed to IN_ROOM');
     // Request fullscreen on mobile to hide URL bar
     setTimeout(() => requestFullscreen(), 500);
+    // Show share modal after room creation
+    setTimeout(() => {
+      showShareModal = true;
+    }, 600);
   }
 
   function handleJoinRoom({ detail: code }) {
@@ -526,6 +531,7 @@
       {roomMode}
       isHousemaster={roomState.isHousemaster}
       bind:settings
+      bind:showQRCode={showShareModal}
       on:modeChange={handleModeChange}
       on:settingsUpdate={handleSettingsUpdate}
       on:leave={handleLeaveRoom}

@@ -5,6 +5,7 @@
   export let roomMode = 'trail';
   export let isHousemaster = false;
   export let settings = {};
+  export let showQRCode = false;
 
   const dispatch = createEventDispatcher();
 
@@ -13,7 +14,7 @@
   }
 
   let copied = false;
-  let showQRCode = false;
+  let urlCopied = false;
   let showSettings = false;
   let showModeConfirm = false;
   let pendingMode = null;
@@ -23,6 +24,13 @@
     navigator.clipboard.writeText(shareUrl);
     copied = true;
     setTimeout(() => (copied = false), 2000);
+  }
+
+  function copyUrl(e) {
+    if (e) e.stopPropagation();
+    navigator.clipboard.writeText(shareUrl);
+    urlCopied = true;
+    setTimeout(() => (urlCopied = false), 2000);
   }
 
   function toggleQRCode(e) {
@@ -213,7 +221,9 @@
       <button class="modal-close" on:click={closeQRCode}>x</button>
       <h3>Scan to Join</h3>
       <img src={qrCodeUrl} alt="QR Code"/>
-      <p class="share-url">{shareUrl}</p>
+      <p class="share-url" class:copied={urlCopied} on:click={copyUrl} role="button" tabindex="0" title="Click to copy">
+        {urlCopied ? 'Copied!' : shareUrl}
+      </p>
     </div>
   </div>
 {/if}
@@ -467,6 +477,17 @@
     padding: 8px;
     border-radius: 4px;
     margin: 0;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .share-url:hover {
+    background: rgba(102, 126, 234, 0.2);
+  }
+
+  .share-url.copied {
+    background: rgba(78, 205, 196, 0.2);
+    color: #4ecdc4;
   }
 
   /* Confirmation modal */
