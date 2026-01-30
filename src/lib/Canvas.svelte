@@ -127,6 +127,7 @@
       window.removeEventListener('remoteDrawPoints', handleRemotePoints);
       window.removeEventListener('remoteCursor', handleRemoteCursor);
       window.removeEventListener('remoteSettings', handleRemoteSettings);
+      window.removeEventListener('remoteStrokeStart', handleRemoteStrokeStart);
       window.removeEventListener('tafelStroke', handleRemoteTafelStroke);
       window.removeEventListener('tafelDrawing', handleRemoteTafelDrawing);
       window.removeEventListener('tafelErase', handleRemoteTafelErase);
@@ -235,6 +236,8 @@
     console.log('✅ remoteCursor listener added');
     window.addEventListener('remoteSettings', handleRemoteSettings);
     console.log('✅ remoteSettings listener added');
+    window.addEventListener('remoteStrokeStart', handleRemoteStrokeStart);
+    console.log('✅ remoteStrokeStart listener added');
 
     // Tafel mode listeners
     window.addEventListener('tafelStroke', handleRemoteTafelStroke);
@@ -345,6 +348,16 @@
     }
   }
 
+  function handleRemoteStrokeStart(event) {
+    console.log('🎨 Received remote stroke start:', event.detail);
+    const { sessionId, color } = event.detail;
+    if (remoteTrailsManager && color) {
+      // Update the user's color when they start a new stroke
+      remoteTrailsManager.updateSettings(sessionId, { color });
+      console.log('🎨 Updated color for user', sessionId, 'to', color);
+    }
+  }
+
   // Point buffering for multiplayer
   function bufferPoint(point) {
     console.log('📦 Buffering point:', point);
@@ -449,8 +462,8 @@
     if (isMultiplayerMode && websocket) {
       console.log('📤 Sending stroke start. Multiplayer:', isMultiplayerMode, 'WebSocket:', websocket);
       try {
-        websocket.sendStrokeStart(trailManager.currentStrokeId);
-        console.log('✅ Stroke start sent');
+        websocket.sendStrokeStart(trailManager.currentStrokeId, settings.color);
+        console.log('✅ Stroke start sent with color:', settings.color);
         const lastPoint = trailManager.points[trailManager.points.length - 1];
         bufferPoint(lastPoint);
       } catch (error) {

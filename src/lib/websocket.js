@@ -219,9 +219,9 @@ export function createWebSocket() {
     send('drawPoints', { points })
   }
 
-  function sendStrokeStart(strokeId) {
-    console.log('🎨 sendStrokeStart() called - strokeId:', strokeId);
-    send('strokeStart', { strokeId, timestamp: Date.now() })
+  function sendStrokeStart(strokeId, color) {
+    console.log('🎨 sendStrokeStart() called - strokeId:', strokeId, 'color:', color);
+    send('strokeStart', { strokeId, timestamp: Date.now(), color })
   }
 
   function sendStrokeEnd(strokeId) {

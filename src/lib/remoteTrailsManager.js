@@ -26,10 +26,13 @@ export class RemoteTrailsManager {
       this.userTrails.set(userId, trailManager)
     }
 
-    // Update or create metadata
+    // Get existing metadata if available
+    const existingMeta = this.userMeta.get(userId)
+
+    // Update or create metadata, preserving existing settings if not provided
     this.userMeta.set(userId, {
       userName,
-      settings: settings || {
+      settings: settings || existingMeta?.settings || {
         color: '#ffffff',
         strokeWidth: 4,
         drawStyle: 'line',
