@@ -65,10 +65,13 @@ export function drawTrail(ctx, points, settings = {}) {
 
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
-    ctx.strokeStyle = color;
-    ctx.fillStyle = color;
 
     for (const stroke of strokes) {
+      // Use color from the first point in stroke, fallback to settings color
+      const strokeColor = stroke[0]?.color || color;
+      ctx.strokeStyle = strokeColor;
+      ctx.fillStyle = strokeColor;
+
       if (drawStyle === 'dots') {
         drawDots(ctx, stroke, strokeWidth, speedSettings);
       } else {

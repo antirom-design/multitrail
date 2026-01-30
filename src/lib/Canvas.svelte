@@ -318,8 +318,15 @@
     const { sessionId, userName, points } = event.detail;
     if (remoteTrailsManager) {
       remoteTrailsManager.addUser(sessionId, userName);
-      remoteTrailsManager.addPoints(sessionId, points);
-      console.log(`✅ Added ${points.length} points for user ${userName}`);
+      // Add the user's current color to each point if not already present
+      const userMeta = remoteTrailsManager.userMeta.get(sessionId);
+      const userColor = userMeta?.settings?.color || '#ffffff';
+      const pointsWithColor = points.map(p => ({
+        ...p,
+        color: p.color || userColor
+      }));
+      remoteTrailsManager.addPoints(sessionId, pointsWithColor);
+      console.log(`✅ Added ${points.length} points for user ${userName} with color ${userColor}`);
     } else {
       console.warn('⚠️ remoteTrailsManager not initialized');
     }
@@ -456,7 +463,7 @@
 
   function handleTrailMouseDown(x, y) {
     trailManager.startNewStroke();
-    trailManager.addPoint(x, y);
+    trailManager.addPoint(x, y, 1.0, settings.color);
 
     // Send stroke start and point to WebSocket if in multiplayer mode
     if (isMultiplayerMode && websocket) {
@@ -539,7 +546,7 @@
   }
 
   function handleTrailMouseMove(x, y) {
-    trailManager.addPoint(x, y);
+    trailManager.addPoint(x, y, 1.0, settings.color);
 
     // Buffer point for multiplayer
     if (isMultiplayerMode && websocket) {
@@ -678,10 +685,10 @@
 
   function handleTrailTouchStart(x, y) {
     trailManager.startNewStroke();
-    trailManager.addPoint(x, y);
+    trailManager.addPoint(x, y, 1.0, settings.color);
 
     if (isMultiplayerMode && websocket) {
-      websocket.sendStrokeStart(trailManager.currentStrokeId);
+      websocket.sendStrokeStart(trailManager.currentStrokeId, settings.color);
       const lastPoint = trailManager.points[trailManager.points.length - 1];
       bufferPoint(lastPoint);
     }
@@ -714,7 +721,7 @@
   }
 
   function handleTrailTouchMove(x, y) {
-    trailManager.addPoint(x, y);
+    trailManager.addPoint(x, y, 1.0, settings.color);
 
     if (isMultiplayerMode && websocket) {
       const lastPoint = trailManager.points[trailManager.points.length - 1];

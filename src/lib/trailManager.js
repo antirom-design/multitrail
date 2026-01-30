@@ -53,7 +53,7 @@ export class TrailManager {
    * @param {number} y - Y coordinate
    * @param {number} pressure - Pressure value (default 1.0, for future use)
    */
-  addPoint(x, y, pressure = 1.0) {
+  addPoint(x, y, pressure = 1.0, color = '#ffffff') {
     const speed = this.calculateSpeed(x, y);
 
     this.points.push({
@@ -63,7 +63,8 @@ export class TrailManager {
       timestamp: Date.now(),
       pressure,
       strokeId: this.currentStrokeId,
-      speed
+      speed,
+      color
     });
 
     this.lastPoint = { x, y };
