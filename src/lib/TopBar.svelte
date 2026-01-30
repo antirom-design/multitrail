@@ -9,15 +9,25 @@
 
   const dispatch = createEventDispatcher();
 
-  function handleLeave() {
-    dispatch('leave');
-  }
-
   let copied = false;
   let urlCopied = false;
   let showSettings = false;
   let showModeConfirm = false;
   let pendingMode = null;
+  let showLeaveConfirm = false;
+
+  function requestLeave() {
+    showLeaveConfirm = true;
+  }
+
+  function confirmLeave() {
+    showLeaveConfirm = false;
+    dispatch('leave');
+  }
+
+  function cancelLeave() {
+    showLeaveConfirm = false;
+  }
 
   function copyCode(e) {
     if (e) e.stopPropagation();
@@ -138,7 +148,7 @@
   <div class="divider"></div>
 
   <!-- Leave button -->
-  <button class="icon-btn leave-btn" on:click={handleLeave} title="Leave Room">
+  <button class="icon-btn leave-btn" on:click={requestLeave} title="Leave Room">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
       <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
       <polyline points="16 17 21 12 16 7"/>
@@ -209,6 +219,20 @@
       <div class="confirm-buttons">
         <button class="cancel-btn" on:click={cancelModeChange}>Cancel</button>
         <button class="confirm-btn" on:click={confirmModeChange}>Switch</button>
+      </div>
+    </div>
+  </div>
+{/if}
+
+<!-- Leave confirmation modal -->
+{#if showLeaveConfirm}
+  <div class="confirm-modal" on:click={cancelLeave} role="dialog">
+    <div class="confirm-content" on:click|stopPropagation role="alertdialog">
+      <h3>Leave Room?</h3>
+      <p>Are you sure you want to leave this room?</p>
+      <div class="confirm-buttons">
+        <button class="cancel-btn" on:click={cancelLeave}>Cancel</button>
+        <button class="confirm-btn leave" on:click={confirmLeave}>Leave</button>
       </div>
     </div>
   </div>
@@ -558,6 +582,14 @@
 
   .confirm-btn:hover {
     background: #5a6fd6;
+  }
+
+  .confirm-btn.leave {
+    background: #ff6b6b;
+  }
+
+  .confirm-btn.leave:hover {
+    background: #e55555;
   }
 
   @media (max-width: 600px) {

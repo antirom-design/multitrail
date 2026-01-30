@@ -133,6 +133,17 @@
       window.history.replaceState({}, document.title, window.location.pathname);
     }
 
+    // Check for active room session (for page reload)
+    const savedRoomCode = sessionStorage.getItem('multitrail_room_code');
+    const savedColor = sessionStorage.getItem('multitrail_color');
+    if (savedRoomCode && !autoJoinRoomCode) {
+      autoJoinRoomCode = savedRoomCode;
+      if (savedColor) {
+        settings.color = savedColor;
+      }
+      console.log('🔄 Restoring room session:', savedRoomCode);
+    }
+
     // Check for saved name
     const savedName = localStorage.getItem('multitrail_last_name');
     if (savedName && appState === STATES.TESTING) {
@@ -148,11 +159,17 @@
       console.log('📝 Using saved name:', savedName);
       user = { displayName: savedName };
 
-      // Auto-join room if we have a code from QR scan
+      // Auto-join room if we have a code from QR scan or reload
       if (autoJoinRoomCode) {
         console.log('🔗 Auto-joining room:', autoJoinRoomCode);
         roomCode = autoJoinRoomCode;
-        settings.color = getRandomColor();
+        // Only generate new color if not restoring from session
+        if (!settings.color || settings.color === '#ffffff') {
+          settings.color = getRandomColor();
+        }
+        // Save to sessionStorage
+        sessionStorage.setItem('multitrail_room_code', roomCode);
+        sessionStorage.setItem('multitrail_color', settings.color);
         appState = STATES.IN_ROOM;
         setTimeout(() => requestFullscreen(), 500);
       } else {
@@ -180,6 +197,9 @@
       console.log('🔗 Auto-joining room:', autoJoinRoomCode);
       roomCode = autoJoinRoomCode;
       settings.color = getRandomColor();
+      // Save to sessionStorage
+      sessionStorage.setItem('multitrail_room_code', roomCode);
+      sessionStorage.setItem('multitrail_color', settings.color);
       appState = STATES.IN_ROOM;
       setTimeout(() => requestFullscreen(), 500);
     } else {
@@ -201,6 +221,11 @@
     settings.color = getRandomColor();
     console.log('🏠 Room code generated:', roomCode);
     console.log('🎨 User color assigned:', settings.color);
+
+    // Save to sessionStorage for reload persistence
+    sessionStorage.setItem('multitrail_room_code', roomCode);
+    sessionStorage.setItem('multitrail_color', settings.color);
+
     console.log('🔄 Changing state to IN_ROOM...');
     appState = STATES.IN_ROOM;
     console.log('✅ State changed to IN_ROOM');
@@ -218,6 +243,11 @@
     // Assign a random color to the user
     settings.color = getRandomColor();
     console.log('🎨 User color assigned:', settings.color);
+
+    // Save to sessionStorage for reload persistence
+    sessionStorage.setItem('multitrail_room_code', roomCode);
+    sessionStorage.setItem('multitrail_color', settings.color);
+
     console.log('🔄 Changing state to IN_ROOM...');
     appState = STATES.IN_ROOM;
     console.log('✅ State changed to IN_ROOM');
@@ -234,6 +264,10 @@
 
   function handleLeaveRoom() {
     console.log('🚪 Leaving room...');
+
+    // Clear session storage (so reload won't rejoin)
+    sessionStorage.removeItem('multitrail_room_code');
+    sessionStorage.removeItem('multitrail_color');
 
     // Remove event listeners
     window.removeEventListener('modeChange', handleRemoteModeChange);
