@@ -376,9 +376,20 @@
     console.log('📋 Received room initial state:', event.detail);
     const { mode, tafelStrokes } = event.detail;
 
-    // Set the room mode
-    roomMode = mode;
-    console.log('🔄 Set room mode to:', mode);
+    // If housemaster and no existing strokes (new room), enforce 'trail' mode
+    const isNewRoom = !tafelStrokes || tafelStrokes.length === 0;
+    if (roomState.isHousemaster && isNewRoom && mode !== 'trail') {
+      console.log('🔄 New room created by host, enforcing trail mode');
+      roomMode = 'trail';
+      // Notify server about the mode
+      if (websocket) {
+        websocket.sendModeChange('trail');
+      }
+    } else {
+      // Use server's mode for existing rooms or when joining
+      roomMode = mode;
+      console.log('🔄 Set room mode to:', mode);
+    }
 
     // Import existing tafel strokes
     if (tafelManager && tafelStrokes && tafelStrokes.length > 0) {
