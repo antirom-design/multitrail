@@ -74,7 +74,7 @@
   let autoJoinRoomCode = null; // Room code from QR scan
 
   // Tafel mode state
-  let roomMode = 'tafel'; // 'trail' or 'tafel' - tafel is default
+  let roomMode = 'trail'; // 'trail' or 'tafel' - multitrail is default
   let activeTool = 'pen'; // 'pen', 'brush', 'eraser'
   let tafelManager = null;
 
