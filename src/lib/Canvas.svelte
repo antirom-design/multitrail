@@ -53,11 +53,14 @@
   let tafelBufferTimeout = null;
 
   // Update trail managers when settings change
-  $: if (trailManager) {
-    trailManager.setLifetime(settings.lifetimeMs);
+  $: currentLifetimeMs = settings.lifetimeMs;
+  $: if (trailManager && currentLifetimeMs) {
+    console.log('⏱️ Canvas: Updating trailManager lifetime to', currentLifetimeMs);
+    trailManager.setLifetime(currentLifetimeMs);
   }
-  $: if (remoteTrailsManager) {
-    remoteTrailsManager.setLifetime(settings.lifetimeMs);
+  $: if (remoteTrailsManager && currentLifetimeMs) {
+    console.log('⏱️ Canvas: Updating remoteTrailsManager lifetime to', currentLifetimeMs);
+    remoteTrailsManager.setLifetime(currentLifetimeMs);
   }
 
   onMount(() => {
