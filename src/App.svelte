@@ -49,7 +49,7 @@
   let websocket = null;
 
   let settings = {
-    lifetimeMs: 10000,
+    lifetimeMs: 7500,
     strokeWidth: 4,
     color: '#ffffff',
     drawStyle: 'line',
@@ -237,6 +237,7 @@
 
     // Remove event listeners
     window.removeEventListener('modeChange', handleRemoteModeChange);
+    window.removeEventListener('roomLifetimeChange', handleRemoteLifetimeChange);
     window.removeEventListener('tafelClearMine', handleRemoteTafelClearMine);
     window.removeEventListener('tafelStroke', handleRemoteTafelStroke);
     window.removeEventListener('tafelClear', handleRemoteTafelClear);
@@ -327,6 +328,7 @@
 
   function setupModeChangeListener() {
     window.addEventListener('modeChange', handleRemoteModeChange);
+    window.addEventListener('roomLifetimeChange', handleRemoteLifetimeChange);
     window.addEventListener('tafelClearMine', handleRemoteTafelClearMine);
     window.addEventListener('tafelStroke', handleRemoteTafelStroke);
     window.addEventListener('tafelClear', handleRemoteTafelClear);
@@ -347,6 +349,16 @@
 
     // Reset tool to pen
     activeTool = 'pen';
+  }
+
+  function handleRemoteLifetimeChange(event) {
+    console.log('⏱️ Received lifetime change:', event.detail);
+    const { lifetimeMs } = event.detail;
+
+    // Update local settings
+    settings.lifetimeMs = lifetimeMs;
+    settings = { ...settings }; // Trigger reactivity
+    console.log('⏱️ Trail lifetime updated to:', lifetimeMs / 1000, 's');
   }
 
   function handleRemoteTafelClearMine(event) {
@@ -399,6 +411,7 @@
   }
 
   function handleSettingsUpdate(event) {
+    const oldLifetimeMs = settings.lifetimeMs;
     settings = { ...event.detail };
 
     // Broadcast settings update if in room
@@ -409,6 +422,12 @@
         drawStyle: settings.drawStyle,
         fontSize: settings.fontSize
       });
+
+      // If housemaster changed trail lifetime, broadcast to all
+      if (roomState.isHousemaster && settings.lifetimeMs !== oldLifetimeMs) {
+        console.log('⏱️ Housemaster changing trail lifetime to:', settings.lifetimeMs);
+        websocket.sendRoomLifetimeChange(settings.lifetimeMs);
+      }
     }
   }
 

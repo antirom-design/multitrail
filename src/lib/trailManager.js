@@ -4,7 +4,7 @@
  */
 
 export class TrailManager {
-  constructor(lifetimeMs = 15000) {
+  constructor(lifetimeMs = 7500) {
     this.points = [];
     this.currentStrokeId = 0;
     this.lifetimeMs = lifetimeMs;

@@ -2,7 +2,7 @@
   import { createEventDispatcher } from 'svelte';
 
   export let settings = {
-    lifetimeMs: 15000,
+    lifetimeMs: 7500,
     strokeWidth: 4,
     color: '#ffffff',
     drawStyle: 'line',

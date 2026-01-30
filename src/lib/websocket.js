@@ -129,6 +129,11 @@ export function createWebSocket() {
         window.dispatchEvent(new CustomEvent('modeChange', { detail: data }))
         break
 
+      case 'roomLifetimeChange':
+        console.log('⏱️ Dispatching roomLifetimeChange event:', data);
+        window.dispatchEvent(new CustomEvent('roomLifetimeChange', { detail: data }))
+        break
+
       case 'tafelStroke':
         console.log('📝 Dispatching tafelStroke event:', data);
         window.dispatchEvent(new CustomEvent('tafelStroke', { detail: data }))
@@ -240,6 +245,11 @@ export function createWebSocket() {
     send('modeChange', { mode })
   }
 
+  function sendRoomLifetimeChange(lifetimeMs) {
+    console.log('⏱️ sendRoomLifetimeChange() called - lifetimeMs:', lifetimeMs);
+    send('roomLifetimeChange', { lifetimeMs })
+  }
+
   function sendTafelStroke(stroke) {
     console.log('📝 sendTafelStroke() called:', stroke.strokeId);
     send('tafelStroke', { stroke })
@@ -300,6 +310,7 @@ export function createWebSocket() {
     sendCursor,
     sendSettings,
     sendModeChange,
+    sendRoomLifetimeChange,
     sendTafelStroke,
     sendTafelDrawing,
     sendTafelErase,

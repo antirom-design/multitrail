@@ -7,7 +7,7 @@
   import { clearCanvas, drawTrail, drawRemoteCursor, drawTafelStrokes, drawEraserCursor, setupHighDPICanvas } from './canvasRenderer.js';
 
   export let settings = {
-    lifetimeMs: 15000,
+    lifetimeMs: 7500,
     strokeWidth: 4,
     color: '#ffffff',
     drawStyle: 'line'
@@ -52,9 +52,12 @@
   let tafelPointBuffer = [];
   let tafelBufferTimeout = null;
 
-  // Update trail manager when settings change
+  // Update trail managers when settings change
   $: if (trailManager) {
     trailManager.setLifetime(settings.lifetimeMs);
+  }
+  $: if (remoteTrailsManager) {
+    remoteTrailsManager.setLifetime(settings.lifetimeMs);
   }
 
   onMount(() => {
@@ -73,7 +76,7 @@
       console.log('🎨 Multiplayer mode enabled - initializing managers...');
       try {
         console.log('🎨 Creating RemoteTrailsManager...');
-        remoteTrailsManager = new RemoteTrailsManager();
+        remoteTrailsManager = new RemoteTrailsManager(settings.lifetimeMs);
         console.log('✅ RemoteTrailsManager created');
 
         console.log('🎨 Creating RemoteCursorsManager...');

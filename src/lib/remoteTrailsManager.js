@@ -5,11 +5,13 @@
 import { TrailManager } from './trailManager.js'
 
 export class RemoteTrailsManager {
-  constructor() {
+  constructor(lifetimeMs = 7500) {
     // Map of userId -> TrailManager instance
     this.userTrails = new Map()
     // Map of userId -> user metadata
     this.userMeta = new Map()
+    // Default lifetime for all trails
+    this.lifetimeMs = lifetimeMs
   }
 
   /**
@@ -20,7 +22,7 @@ export class RemoteTrailsManager {
    */
   addUser(userId, userName, settings = null) {
     if (!this.userTrails.has(userId)) {
-      const trailManager = new TrailManager(10000) // 10 second lifetime
+      const trailManager = new TrailManager(this.lifetimeMs)
       this.userTrails.set(userId, trailManager)
     }
 
@@ -121,6 +123,18 @@ export class RemoteTrailsManager {
         console.log(`Removing inactive user: ${meta.userName}`)
         this.removeUser(userId)
       }
+    })
+  }
+
+  /**
+   * Set the lifetime for all trails (room-wide setting)
+   * @param {number} lifetimeMs - New lifetime in milliseconds
+   */
+  setLifetime(lifetimeMs) {
+    this.lifetimeMs = lifetimeMs
+    // Update all existing trail managers
+    this.userTrails.forEach(trailManager => {
+      trailManager.setLifetime(lifetimeMs)
     })
   }
 
