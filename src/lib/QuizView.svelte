@@ -158,12 +158,9 @@
             streak = newStreak;
             totalScore = newTotal;
 
-            if (currentQuestionIndex < questions.length - 1) {
-                currentQuestionIndex++;
-                gameState = "QUIZ";
-            } else {
-                gameState = "FINISHED";
-            }
+            currentQuestionIndex =
+                (currentQuestionIndex + 1) % questions.length;
+            gameState = "QUIZ";
         }
     }
 
@@ -251,8 +248,9 @@
     }
 
     function handleMissionEnded() {
+        console.log("[QuizView] 🏁 Mission Ended (Sync)");
         clearInterval(timerInterval);
-        gameState = "VICTORY";
+        gameState = isHousemaster ? "VICTORY" : "FINISHED";
     }
 
     function submitAnswer(index) {

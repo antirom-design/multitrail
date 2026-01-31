@@ -633,10 +633,12 @@
       on:leave={handleLeaveRoom}
     />
 
-    <OnlineIndicator
-      userCount={roomState.users.length}
-      on:click={toggleUserList}
-    />
+    {#if roomState.isHousemaster || roomMode !== "quiz"}
+      <OnlineIndicator
+        userCount={roomState.users.length}
+        on:click={toggleUserList}
+      />
+    {/if}
 
     <UserList
       users={roomState.users}
