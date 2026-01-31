@@ -169,6 +169,27 @@ export function createWebSocket() {
         window.dispatchEvent(new CustomEvent('userColorChange', { detail: data }))
         break
 
+      // Quiz-specific events
+      case 'quizMissionStarted':
+        console.log('🎮 Dispatching quizMissionStarted event:', data);
+        window.dispatchEvent(new CustomEvent('quizMissionStarted', { detail: data }))
+        break
+
+      case 'quizResult':
+        console.log('📊 Dispatching quizResult event:', data);
+        window.dispatchEvent(new CustomEvent('quizResult', { detail: data }))
+        break
+
+      case 'towerShot':
+        console.log('🔫 Dispatching towerShot event:', data);
+        window.dispatchEvent(new CustomEvent('towerShot', { detail: data }))
+        break
+
+      case 'pulse':
+        console.log('📡 Dispatching pulse event:', data);
+        window.dispatchEvent(new CustomEvent('pulse', { detail: data }))
+        break
+
       case 'error':
         console.error('❌ Server error:', message.message)
         break
@@ -280,6 +301,22 @@ export function createWebSocket() {
     send('userColorChange', { color })
   }
 
+  // Quiz mode methods
+  function startQuizMission(sessionId, questions) {
+    console.log('🎮 startQuizMission() called with', questions.length, 'questions');
+    send('startQuizMission', { sessionId, questions })
+  }
+
+  function submitQuizAnswer(sessionId, questionId, answerIndex) {
+    console.log('📝 submitQuizAnswer() called - questionId:', questionId, 'answerIndex:', answerIndex);
+    send('submitQuizAnswer', { sessionId, questionId, answerIndex })
+  }
+
+  function sendPulse(sessionId) {
+    console.log('📡 sendPulse() called');
+    send('pulse', { sessionId })
+  }
+
   function disconnect() {
     if (ws) {
       clearTimeout(reconnectTimeout)
@@ -317,6 +354,9 @@ export function createWebSocket() {
     sendTafelClear,
     sendTafelClearMine,
     sendUserColorChange,
+    startQuizMission,
+    submitQuizAnswer,
+    sendPulse,
     disconnect,
     on
   }

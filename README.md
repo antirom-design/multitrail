@@ -1,15 +1,20 @@
-# Multitrail v1.0.0
+# Tools4School (t4s)
 
-A real-time multiplayer collaborative drawing application where users create and share ephemeral visual trails together.
+A collaborative learning platform with three integrated modes: **Multitrail**, **Tafel**, and **Quiz Mission**.
 
 ## Features
 
-- **Collaborative Canvas** - Draw together in real-time with multiple users
-- **Ephemeral Trails** - Drawings fade away after a configurable time (1-30 seconds)
+### 🎨 Three Collaborative Modes
+
+1. **Multitrail Mode** - Ephemeral drawing with fading trails (1-30 seconds)
+2. **Tafel Mode** - Persistent whiteboard for collaborative drawing
+3. **Quiz Mode** - Interactive quiz game with asteroid defense theme
+
+### 🌐 Multiplayer Features
+
 - **Room-Based Sessions** - Create or join rooms with 6-character codes
 - **Live Cursors** - See other users' cursor positions with their names
-- **Speed-Based Drawing** - Optional stroke width that varies with drawing speed
-- **Text Input** - Type directly on the canvas
+- **User Management** - Persistent names and session IDs across mode switches
 - **QR Code Sharing** - Easy mobile room sharing
 - **Mobile Optimized** - Full touch support with fullscreen mode
 
@@ -20,7 +25,7 @@ A real-time multiplayer collaborative drawing application where users create and
 | Frontend | Svelte 4, Vite 5 |
 | Drawing | HTML Canvas API |
 | Realtime | WebSocket |
-| Backend | Funkhaus WebSocket Server (external) |
+| Backend | Funkhaus WebSocket Server (shared) |
 | Deployment | Vercel (frontend), Render (backend) |
 
 ## Getting Started
@@ -55,23 +60,21 @@ npm run preview
 
 ```
 src/
-├── App.svelte              # Main app, state machine
+├── App.svelte              # Main app, state machine, mode switching
 ├── main.js                 # Entry point
 ├── app.css                 # Global styles
 └── lib/
-    ├── Canvas.svelte       # Drawing surface, input handling
+    ├── Canvas.svelte       # Drawing surface (Trail/Tafel modes)
+    ├── QuizView.svelte     # Quiz mode (host + student views)
+    ├── TopBar.svelte       # Mode switcher, settings, room controls
+    ├── TafelToolbar.svelte # Drawing tools (pen, brush, eraser)
+    ├── websocket.js        # WebSocket client (unified for all modes)
     ├── canvasRenderer.js   # Rendering engine
-    ├── trailManager.js     # Local trail state
-    ├── remoteTrailsManager.js  # Remote users' trails
-    ├── remoteCursors.js    # Remote cursor tracking
-    ├── websocket.js        # WebSocket client (Svelte store)
-    ├── Settings.svelte     # Configuration panel
+    ├── trailManager.js     # Trail mode state
+    ├── tafelManager.js     # Tafel mode state
     ├── RoomJoin.svelte     # Room selection UI
-    ├── RoomInfo.svelte     # Share & QR code
     ├── UserList.svelte     # Online users list
-    ├── OnlineIndicator.svelte  # User count badge
-    ├── NameInput.svelte    # Name entry screen
-    └── TestScreen.svelte   # System diagnostics
+    └── ...
 ```
 
 ## Application States
@@ -79,19 +82,37 @@ src/
 1. **TESTING** - System health check (backend connectivity)
 2. **NAMED** - User enters display name
 3. **ROOM_SELECT** - Create or join a room
-4. **IN_ROOM** - Active drawing session
+4. **IN_ROOM** - Active session with mode switching
 
-## Configuration
+## Modes
 
-Drawing settings (configurable in-app):
+### Multitrail Mode
 
-| Setting | Default | Range |
-|---------|---------|-------|
-| Trail Lifetime | 10s | 1-30s |
-| Stroke Width | 3px | 1-40px |
-| Draw Style | line | line, dots |
-| Speed-Based Width | off | on/off |
-| Text Size | 24px | 8-72px |
+- Ephemeral drawing with configurable fade time
+- Speed-based stroke width (optional)
+- Line or dot drawing styles
+- Real-time cursor tracking
+
+### Tafel Mode
+
+- Persistent whiteboard
+- Pen, brush, and eraser tools
+- Clear all or clear my drawings
+- Synchronized across all users
+
+### Quiz Mode
+
+**Host View:**
+- Start quiz missions with custom questions
+- Asteroid defense visualization
+- Real-time leaderboard
+- Strike tracking
+
+**Student View:**
+- Answer quiz questions
+- Earn credits and build streaks
+- Send signals to host
+- Progress tracking
 
 ## Backend
 
@@ -106,29 +127,28 @@ Backend handles:
 - Room management (create/join with 6-char codes)
 - Real-time message broadcasting
 - User presence tracking
-- Drawing point synchronization
+- Mode synchronization
+- Quiz state management
 
-## WebSocket Protocol
+## Mode Switching
 
-### Client Messages
+Only the **Housemaster** (room creator) can switch modes:
 
-| Type | Purpose |
-|------|---------|
-| `join` | Join a room |
-| `drawPoints` | Send drawing points batch |
-| `cursorMove` | Send cursor position |
-| `settingsUpdate` | Broadcast user settings |
-| `strokeStart/End` | Signal stroke boundaries |
+1. Click the mode button in the top-right corner
+2. Modes cycle: **Trail → Tafel → Quiz → Trail**
+3. Confirm the mode change
+4. All users in the room switch to the new mode automatically
 
-### Server Messages
+## Configuration
 
-| Type | Purpose |
-|------|---------|
-| `joined` | Confirm room join, host status |
-| `rooms` | Current user list |
-| `remoteDrawPoints` | Other users' drawing points |
-| `remoteCursor` | Other users' cursor positions |
-| `remoteSettings` | Other users' settings |
+Drawing settings (configurable in-app):
+
+| Setting | Default | Range |
+|---------|---------|-------|
+| Trail Lifetime | 7.5s | 1-30s |
+| Stroke Width | 4px | 1-20px |
+| Draw Style | line | line, dots |
+| Speed-Based Width | off | on/off |
 
 ## License
 

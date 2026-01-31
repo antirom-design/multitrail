@@ -1,42 +1,43 @@
 <script>
-  import { onMount } from 'svelte';
-  import Canvas from './lib/Canvas.svelte';
-  import TestScreen from './lib/TestScreen.svelte';
-  import NameInput from './lib/NameInput.svelte';
-  import RoomJoin from './lib/RoomJoin.svelte';
-  import UserList from './lib/UserList.svelte';
-  import OnlineIndicator from './lib/OnlineIndicator.svelte';
-  import TopBar from './lib/TopBar.svelte';
-  import TafelToolbar from './lib/TafelToolbar.svelte';
-  import { createWebSocket } from './lib/websocket.js';
-  import { TafelManager } from './lib/tafelManager.js';
+  import { onMount } from "svelte";
+  import Canvas from "./lib/Canvas.svelte";
+  import TestScreen from "./lib/TestScreen.svelte";
+  import NameInput from "./lib/NameInput.svelte";
+  import RoomJoin from "./lib/RoomJoin.svelte";
+  import UserList from "./lib/UserList.svelte";
+  import OnlineIndicator from "./lib/OnlineIndicator.svelte";
+  import TopBar from "./lib/TopBar.svelte";
+  import TafelToolbar from "./lib/TafelToolbar.svelte";
+  import QuizView from "./lib/QuizView.svelte";
+  import { createWebSocket } from "./lib/websocket.js";
+  import { TafelManager } from "./lib/tafelManager.js";
 
   const BACKEND_URL = import.meta.env.PROD
-    ? 'wss://funkhaus-websocket.onrender.com'
-    : 'ws://localhost:3001';
+    ? "wss://funkhaus-websocket.onrender.com"
+    : "ws://localhost:3001";
 
   // States: TESTING → NAMED → ROOM_SELECT → IN_ROOM
   const STATES = {
-    TESTING: 'TESTING',
-    NAMED: 'NAMED',
-    ROOM_SELECT: 'ROOM_SELECT',
-    IN_ROOM: 'IN_ROOM'
+    TESTING: "TESTING",
+    NAMED: "NAMED",
+    ROOM_SELECT: "ROOM_SELECT",
+    IN_ROOM: "IN_ROOM",
   };
 
   // Color palette for users
   const COLOR_PALETTE = [
-    '#FF6B6B', // red
-    '#4ECDC4', // turquoise
-    '#45B7D1', // blue
-    '#FFA07A', // salmon
-    '#98D8C8', // mint
-    '#F7DC6F', // yellow
-    '#BB8FCE', // purple
-    '#85C1E2', // sky blue
-    '#F8B739', // orange
-    '#52C77A', // green
-    '#FF85A1', // pink
-    '#95E1D3'  // aqua
+    "#FF6B6B", // red
+    "#4ECDC4", // turquoise
+    "#45B7D1", // blue
+    "#FFA07A", // salmon
+    "#98D8C8", // mint
+    "#F7DC6F", // yellow
+    "#BB8FCE", // purple
+    "#85C1E2", // sky blue
+    "#F8B739", // orange
+    "#52C77A", // green
+    "#FF85A1", // pink
+    "#95E1D3", // aqua
   ];
 
   function getRandomColor() {
@@ -51,21 +52,21 @@
   let settings = {
     lifetimeMs: 7500,
     strokeWidth: 4,
-    color: '#ffffff',
-    drawStyle: 'line',
+    color: "#ffffff",
+    drawStyle: "line",
     speedSettings: {
       enabled: false,
       minWidth: 1,
       maxWidth: 20,
-      sensitivity: 1
+      sensitivity: 1,
     },
-    fontSize: 24
+    fontSize: 24,
   };
 
   let roomState = {
     users: [],
     sessionId: null,
-    isHousemaster: false
+    isHousemaster: false,
   };
 
   let sessionId = null;
@@ -75,8 +76,8 @@
   let showShareModal = false; // Show share modal after room creation
 
   // Tafel mode state
-  let roomMode = 'trail'; // 'trail' or 'tafel' - multitrail is default
-  let activeTool = 'pen'; // 'pen', 'brush', 'eraser'
+  let roomMode = "trail"; // 'trail', 'tafel', or 'quiz'
+  let activeTool = "pen"; // 'pen', 'brush', 'eraser'
   let tafelManager = null;
 
   function toggleUserList() {
@@ -91,20 +92,22 @@
     // Request fullscreen to hide URL bar on mobile
     const elem = document.documentElement;
     if (elem.requestFullscreen) {
-      elem.requestFullscreen().catch(err => {
-        console.log('Fullscreen request failed:', err);
+      elem.requestFullscreen().catch((err) => {
+        console.log("Fullscreen request failed:", err);
       });
-    } else if (elem.webkitRequestFullscreen) { // Safari
+    } else if (elem.webkitRequestFullscreen) {
+      // Safari
       elem.webkitRequestFullscreen();
-    } else if (elem.msRequestFullscreen) { // IE11
+    } else if (elem.msRequestFullscreen) {
+      // IE11
       elem.msRequestFullscreen();
     }
   }
 
   function exitFullscreen() {
     if (document.exitFullscreen) {
-      document.exitFullscreen().catch(err => {
-        console.log('Exit fullscreen failed:', err);
+      document.exitFullscreen().catch((err) => {
+        console.log("Exit fullscreen failed:", err);
       });
     } else if (document.webkitExitFullscreen) {
       document.webkitExitFullscreen();
@@ -115,120 +118,120 @@
 
   onMount(() => {
     // Generate session ID
-    let storedSessionId = sessionStorage.getItem('multitrail_session_id');
+    let storedSessionId = sessionStorage.getItem("multitrail_session_id");
     if (!storedSessionId) {
       storedSessionId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      sessionStorage.setItem('multitrail_session_id', storedSessionId);
+      sessionStorage.setItem("multitrail_session_id", storedSessionId);
     }
     sessionId = storedSessionId;
-    console.log('🆔 Session ID:', sessionId);
+    console.log("🆔 Session ID:", sessionId);
 
     // Check for room code in URL (QR scan)
     const urlParams = new URLSearchParams(window.location.search);
-    const joinCode = urlParams.get('join');
+    const joinCode = urlParams.get("join");
     if (joinCode) {
       autoJoinRoomCode = joinCode.toUpperCase();
-      console.log('🔗 Auto-join room code from URL:', autoJoinRoomCode);
+      console.log("🔗 Auto-join room code from URL:", autoJoinRoomCode);
       // Clean up URL
       window.history.replaceState({}, document.title, window.location.pathname);
     }
 
     // Check for active room session (for page reload)
-    const savedRoomCode = sessionStorage.getItem('multitrail_room_code');
-    const savedColor = sessionStorage.getItem('multitrail_color');
+    const savedRoomCode = sessionStorage.getItem("multitrail_room_code");
+    const savedColor = sessionStorage.getItem("multitrail_color");
     if (savedRoomCode && !autoJoinRoomCode) {
       autoJoinRoomCode = savedRoomCode;
       if (savedColor) {
         settings.color = savedColor;
       }
-      console.log('🔄 Restoring room session:', savedRoomCode);
+      console.log("🔄 Restoring room session:", savedRoomCode);
     }
 
     // Check for saved name
-    const savedName = localStorage.getItem('multitrail_last_name');
+    const savedName = localStorage.getItem("multitrail_last_name");
     if (savedName && appState === STATES.TESTING) {
       // We'll set this after tests pass
     }
   });
 
   function handleTestsPass() {
-    console.log('✅ Tests passed');
+    console.log("✅ Tests passed");
     // Check if we have a saved name
-    const savedName = localStorage.getItem('multitrail_last_name');
+    const savedName = localStorage.getItem("multitrail_last_name");
     if (savedName) {
-      console.log('📝 Using saved name:', savedName);
+      console.log("📝 Using saved name:", savedName);
       user = { displayName: savedName };
 
       // Auto-join room if we have a code from QR scan or reload
       if (autoJoinRoomCode) {
-        console.log('🔗 Auto-joining room:', autoJoinRoomCode);
+        console.log("🔗 Auto-joining room:", autoJoinRoomCode);
         roomCode = autoJoinRoomCode;
         // Only generate new color if not restoring from session
-        if (!settings.color || settings.color === '#ffffff') {
+        if (!settings.color || settings.color === "#ffffff") {
           settings.color = getRandomColor();
         }
         // Save to sessionStorage
-        sessionStorage.setItem('multitrail_room_code', roomCode);
-        sessionStorage.setItem('multitrail_color', settings.color);
+        sessionStorage.setItem("multitrail_room_code", roomCode);
+        sessionStorage.setItem("multitrail_color", settings.color);
         appState = STATES.IN_ROOM;
         setTimeout(() => requestFullscreen(), 500);
       } else {
         appState = STATES.ROOM_SELECT;
-        console.log('🔄 State changed to ROOM_SELECT');
+        console.log("🔄 State changed to ROOM_SELECT");
       }
     } else {
-      console.log('📝 No saved name, prompting for name');
+      console.log("📝 No saved name, prompting for name");
       appState = STATES.NAMED;
-      console.log('🔄 State changed to NAMED');
+      console.log("🔄 State changed to NAMED");
     }
   }
 
   function handleTestsFail(report) {
-    console.error('❌ Tests failed:', report);
+    console.error("❌ Tests failed:", report);
   }
 
   function handleSetName({ detail: displayName }) {
-    console.log('📝 Setting name:', displayName);
+    console.log("📝 Setting name:", displayName);
     user = { displayName };
-    localStorage.setItem('multitrail_last_name', displayName);
+    localStorage.setItem("multitrail_last_name", displayName);
 
     // Auto-join room if we have a code from QR scan
     if (autoJoinRoomCode) {
-      console.log('🔗 Auto-joining room:', autoJoinRoomCode);
+      console.log("🔗 Auto-joining room:", autoJoinRoomCode);
       roomCode = autoJoinRoomCode;
       settings.color = getRandomColor();
       // Save to sessionStorage
-      sessionStorage.setItem('multitrail_room_code', roomCode);
-      sessionStorage.setItem('multitrail_color', settings.color);
+      sessionStorage.setItem("multitrail_room_code", roomCode);
+      sessionStorage.setItem("multitrail_color", settings.color);
       appState = STATES.IN_ROOM;
       setTimeout(() => requestFullscreen(), 500);
     } else {
       appState = STATES.ROOM_SELECT;
-      console.log('🔄 State changed to ROOM_SELECT');
+      console.log("🔄 State changed to ROOM_SELECT");
     }
   }
 
   function handleCreateRoom() {
-    console.log('🎲 Creating new room...');
+    console.log("🎲 Creating new room...");
     // Generate 6-character room code
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    let code = '';
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    let code = "";
     for (let i = 0; i < 6; i++) {
       code += chars[Math.floor(Math.random() * chars.length)];
     }
     roomCode = code;
     // Assign a random color to the user
     settings.color = getRandomColor();
-    console.log('🏠 Room code generated:', roomCode);
-    console.log('🎨 User color assigned:', settings.color);
+    console.log("🏠 Room code generated:", roomCode);
+    console.log("🎨 User color assigned:", settings.color);
 
     // Save to sessionStorage for reload persistence
-    sessionStorage.setItem('multitrail_room_code', roomCode);
-    sessionStorage.setItem('multitrail_color', settings.color);
+    sessionStorage.setItem("multitrail_room_code", roomCode);
+    sessionStorage.setItem("multitrail_color", settings.color);
 
-    console.log('🔄 Changing state to IN_ROOM...');
+    console.log("🔄 Changing state to IN_ROOM...");
     appState = STATES.IN_ROOM;
-    console.log('✅ State changed to IN_ROOM');
+    console.log("✅ State changed to IN_ROOM");
     // Request fullscreen on mobile to hide URL bar
     setTimeout(() => requestFullscreen(), 500);
     // Show share modal after room creation
@@ -238,139 +241,142 @@
   }
 
   function handleJoinRoom({ detail: code }) {
-    console.log('🚪 Joining room:', code);
+    console.log("🚪 Joining room:", code);
     roomCode = code.toUpperCase();
     // Assign a random color to the user
     settings.color = getRandomColor();
-    console.log('🎨 User color assigned:', settings.color);
+    console.log("🎨 User color assigned:", settings.color);
 
     // Save to sessionStorage for reload persistence
-    sessionStorage.setItem('multitrail_room_code', roomCode);
-    sessionStorage.setItem('multitrail_color', settings.color);
+    sessionStorage.setItem("multitrail_room_code", roomCode);
+    sessionStorage.setItem("multitrail_color", settings.color);
 
-    console.log('🔄 Changing state to IN_ROOM...');
+    console.log("🔄 Changing state to IN_ROOM...");
     appState = STATES.IN_ROOM;
-    console.log('✅ State changed to IN_ROOM');
+    console.log("✅ State changed to IN_ROOM");
     // Request fullscreen on mobile to hide URL bar
     setTimeout(() => requestFullscreen(), 500);
   }
 
   function handleChangeName({ detail: newName }) {
-    console.log('✏️ Changing name to:', newName);
+    console.log("✏️ Changing name to:", newName);
     user = { displayName: newName };
-    localStorage.setItem('multitrail_last_name', newName);
-    console.log('✅ Name updated');
+    localStorage.setItem("multitrail_last_name", newName);
+    console.log("✅ Name updated");
   }
 
   function handleLeaveRoom() {
-    console.log('🚪 Leaving room...');
+    console.log("🚪 Leaving room...");
 
     // Clear session storage (so reload won't rejoin)
-    sessionStorage.removeItem('multitrail_room_code');
-    sessionStorage.removeItem('multitrail_color');
+    sessionStorage.removeItem("multitrail_room_code");
+    sessionStorage.removeItem("multitrail_color");
 
     // Remove event listeners
-    window.removeEventListener('modeChange', handleRemoteModeChange);
-    window.removeEventListener('roomLifetimeChange', handleRemoteLifetimeChange);
-    window.removeEventListener('tafelClearMine', handleRemoteTafelClearMine);
-    window.removeEventListener('tafelStroke', handleRemoteTafelStroke);
-    window.removeEventListener('tafelClear', handleRemoteTafelClear);
-    window.removeEventListener('roomInitialState', handleRoomInitialState);
+    window.removeEventListener("modeChange", handleRemoteModeChange);
+    window.removeEventListener(
+      "roomLifetimeChange",
+      handleRemoteLifetimeChange,
+    );
+    window.removeEventListener("tafelClearMine", handleRemoteTafelClearMine);
+    window.removeEventListener("tafelStroke", handleRemoteTafelStroke);
+    window.removeEventListener("tafelClear", handleRemoteTafelClear);
+    window.removeEventListener("roomInitialState", handleRoomInitialState);
 
     if (websocket) {
-      console.log('🔌 Disconnecting WebSocket...');
+      console.log("🔌 Disconnecting WebSocket...");
       websocket.disconnect();
       websocket = null;
-      console.log('✅ WebSocket disconnected');
+      console.log("✅ WebSocket disconnected");
     }
     roomCode = null;
     hasJoinedHouse = false; // Reset flag for next room join
     roomState = {
       users: [],
       sessionId: null,
-      isHousemaster: false
+      isHousemaster: false,
     };
 
     // Reset Tafel state
-    roomMode = 'trail';
-    activeTool = 'pen';
+    roomMode = "trail";
+    activeTool = "pen";
     if (tafelManager) {
       tafelManager.clearAll();
       tafelManager = null;
     }
 
     appState = STATES.ROOM_SELECT;
-    console.log('🔄 State changed to ROOM_SELECT');
+    console.log("🔄 State changed to ROOM_SELECT");
     // Exit fullscreen when leaving room
     exitFullscreen();
   }
 
   // WebSocket connection - only when IN_ROOM
   $: if (appState === STATES.IN_ROOM && roomCode && user && !websocket) {
-    console.log('🔌 Reactive: WebSocket connection triggered');
-    console.log('🔌 appState:', appState);
-    console.log('🔌 roomCode:', roomCode);
-    console.log('🔌 user:', user);
-    console.log('🔌 BACKEND_URL:', BACKEND_URL);
+    console.log("🔌 Reactive: WebSocket connection triggered");
+    console.log("🔌 appState:", appState);
+    console.log("🔌 roomCode:", roomCode);
+    console.log("🔌 user:", user);
+    console.log("🔌 BACKEND_URL:", BACKEND_URL);
 
     // Initialize TafelManager
     tafelManager = new TafelManager();
-    console.log('📝 TafelManager created');
+    console.log("📝 TafelManager created");
 
     try {
-      console.log('🔌 Creating WebSocket...');
+      console.log("🔌 Creating WebSocket...");
       websocket = createWebSocket();
-      console.log('✅ WebSocket object created:', websocket);
+      console.log("✅ WebSocket object created:", websocket);
 
-      console.log('🔌 Connecting to', BACKEND_URL);
+      console.log("🔌 Connecting to", BACKEND_URL);
       websocket.connect(BACKEND_URL);
-      console.log('✅ WebSocket.connect() called');
+      console.log("✅ WebSocket.connect() called");
 
-      console.log('🔌 Subscribing to WebSocket state updates...');
-      websocket.subscribe(state => {
-        console.log('📡 WebSocket state update received:', state);
+      console.log("🔌 Subscribing to WebSocket state updates...");
+      websocket.subscribe((state) => {
+        console.log("📡 WebSocket state update received:", state);
 
         if (state.connected && appState === STATES.IN_ROOM && !hasJoinedHouse) {
-          console.log('📡 WebSocket connected! Joining house...');
-          console.log('📡 Joining house:', roomCode, 'as', user.displayName);
+          console.log("📡 WebSocket connected! Joining house...");
+          console.log("📡 Joining house:", roomCode, "as", user.displayName);
           try {
             websocket.joinHouse(roomCode, user.displayName);
             hasJoinedHouse = true; // Prevent re-joining
-            console.log('✅ joinHouse() called successfully');
+            console.log("✅ joinHouse() called successfully");
           } catch (error) {
-            console.error('❌ Error calling joinHouse:', error);
+            console.error("❌ Error calling joinHouse:", error);
           }
         }
 
         if (state.rooms && state.rooms.length > 0) {
-          console.log('📡 Received room list:', state.rooms);
+          console.log("📡 Received room list:", state.rooms);
           roomState.users = state.rooms;
           roomState.sessionId = state.sessionId;
           roomState.isHousemaster = state.isHousemaster;
-          console.log('✅ Room state updated:', roomState);
+          console.log("✅ Room state updated:", roomState);
         }
       });
-      console.log('✅ WebSocket subscription setup complete');
+      console.log("✅ WebSocket subscription setup complete");
 
       // Set up mode change listener
       setupModeChangeListener();
     } catch (error) {
-      console.error('❌ Error in WebSocket initialization:', error);
+      console.error("❌ Error in WebSocket initialization:", error);
       throw error;
     }
   }
 
   function setupModeChangeListener() {
-    window.addEventListener('modeChange', handleRemoteModeChange);
-    window.addEventListener('roomLifetimeChange', handleRemoteLifetimeChange);
-    window.addEventListener('tafelClearMine', handleRemoteTafelClearMine);
-    window.addEventListener('tafelStroke', handleRemoteTafelStroke);
-    window.addEventListener('tafelClear', handleRemoteTafelClear);
-    window.addEventListener('roomInitialState', handleRoomInitialState);
+    window.addEventListener("modeChange", handleRemoteModeChange);
+    window.addEventListener("roomLifetimeChange", handleRemoteLifetimeChange);
+    window.addEventListener("tafelClearMine", handleRemoteTafelClearMine);
+    window.addEventListener("tafelStroke", handleRemoteTafelStroke);
+    window.addEventListener("tafelClear", handleRemoteTafelClear);
+    window.addEventListener("roomInitialState", handleRoomInitialState);
   }
 
   function handleRemoteModeChange(event) {
-    console.log('🔄 Received mode change:', event.detail);
+    console.log("🔄 Received mode change:", event.detail);
     const { mode } = event.detail;
 
     // Always apply mode change from server (includes our own echo back)
@@ -382,21 +388,21 @@
     }
 
     // Reset tool to pen
-    activeTool = 'pen';
+    activeTool = "pen";
   }
 
   function handleRemoteLifetimeChange(event) {
-    console.log('⏱️ Received lifetime change:', event.detail);
+    console.log("⏱️ Received lifetime change:", event.detail);
     const { lifetimeMs } = event.detail;
 
     // Update local settings
     settings.lifetimeMs = lifetimeMs;
     settings = { ...settings }; // Trigger reactivity
-    console.log('⏱️ Trail lifetime updated to:', lifetimeMs / 1000, 's');
+    console.log("⏱️ Trail lifetime updated to:", lifetimeMs / 1000, "s");
   }
 
   function handleRemoteTafelClearMine(event) {
-    console.log('🧹 Received tafelClearMine:', event.detail);
+    console.log("🧹 Received tafelClearMine:", event.detail);
     const { sessionId: senderId } = event.detail;
     if (tafelManager && senderId) {
       tafelManager.clearUserStrokes(senderId);
@@ -404,7 +410,7 @@
   }
 
   function handleRemoteTafelStroke(event) {
-    console.log('📝 Received tafelStroke:', event.detail);
+    console.log("📝 Received tafelStroke:", event.detail);
     const { stroke } = event.detail;
     if (tafelManager && stroke) {
       tafelManager.addStroke(stroke);
@@ -412,35 +418,35 @@
   }
 
   function handleRemoteTafelClear(event) {
-    console.log('🧹 Received tafelClear:', event.detail);
+    console.log("🧹 Received tafelClear:", event.detail);
     if (tafelManager) {
       tafelManager.clearAll();
     }
   }
 
   function handleRoomInitialState(event) {
-    console.log('📋 Received room initial state:', event.detail);
+    console.log("📋 Received room initial state:", event.detail);
     const { mode, tafelStrokes } = event.detail;
 
     // If housemaster and no existing strokes (new room), enforce 'trail' mode
     const isNewRoom = !tafelStrokes || tafelStrokes.length === 0;
-    if (roomState.isHousemaster && isNewRoom && mode !== 'trail') {
-      console.log('🔄 New room created by host, enforcing trail mode');
-      roomMode = 'trail';
+    if (roomState.isHousemaster && isNewRoom && mode !== "trail") {
+      console.log("🔄 New room created by host, enforcing trail mode");
+      roomMode = "trail";
       // Notify server about the mode
       if (websocket) {
-        websocket.sendModeChange('trail');
+        websocket.sendModeChange("trail");
       }
     } else {
       // Use server's mode for existing rooms or when joining
       roomMode = mode;
-      console.log('🔄 Set room mode to:', mode);
+      console.log("🔄 Set room mode to:", mode);
     }
 
     // Import existing tafel strokes
     if (tafelManager && tafelStrokes && tafelStrokes.length > 0) {
       tafelManager.importStrokes(tafelStrokes);
-      console.log('📝 Imported', tafelStrokes.length, 'tafel strokes');
+      console.log("📝 Imported", tafelStrokes.length, "tafel strokes");
     }
   }
 
@@ -454,12 +460,15 @@
         color: settings.color,
         strokeWidth: settings.strokeWidth,
         drawStyle: settings.drawStyle,
-        fontSize: settings.fontSize
+        fontSize: settings.fontSize,
       });
 
       // If housemaster changed trail lifetime, broadcast to all
       if (roomState.isHousemaster && settings.lifetimeMs !== oldLifetimeMs) {
-        console.log('⏱️ Housemaster changing trail lifetime to:', settings.lifetimeMs);
+        console.log(
+          "⏱️ Housemaster changing trail lifetime to:",
+          settings.lifetimeMs,
+        );
         websocket.sendRoomLifetimeChange(settings.lifetimeMs);
       }
     }
@@ -468,13 +477,13 @@
   // Tafel Toolbar handlers
   function handleToolChange(event) {
     activeTool = event.detail;
-    console.log('🔧 Tool changed to:', activeTool);
+    console.log("🔧 Tool changed to:", activeTool);
   }
 
   function handleColorChange(event) {
     settings.color = event.detail;
     settings = { ...settings };
-    console.log('🎨 Color changed to:', settings.color);
+    console.log("🎨 Color changed to:", settings.color);
 
     // Broadcast color change
     if (appState === STATES.IN_ROOM && websocket) {
@@ -485,13 +494,13 @@
   function handleBrushSizeChange(event) {
     settings.strokeWidth = event.detail;
     settings = { ...settings };
-    console.log('📏 Brush size changed to:', settings.strokeWidth);
+    console.log("📏 Brush size changed to:", settings.strokeWidth);
   }
 
   // Host Controls handlers
   function handleModeChange(event) {
     const newMode = event.detail;
-    console.log('🔄 Mode change requested:', newMode);
+    console.log("🔄 Mode change requested:", newMode);
 
     roomMode = newMode;
 
@@ -501,7 +510,7 @@
     }
 
     // Reset tool to pen
-    activeTool = 'pen';
+    activeTool = "pen";
 
     // Broadcast mode change
     if (websocket) {
@@ -510,7 +519,7 @@
   }
 
   function handleClearTafel() {
-    console.log('🧹 Clear tafel requested');
+    console.log("🧹 Clear tafel requested");
 
     if (tafelManager) {
       tafelManager.clearAll();
@@ -523,7 +532,7 @@
   }
 
   function handleClearMyDrawings() {
-    console.log('🧹 Clear my drawings requested');
+    console.log("🧹 Clear my drawings requested");
 
     if (tafelManager && roomState.sessionId) {
       tafelManager.clearUserStrokes(roomState.sessionId);
@@ -538,11 +547,11 @@
   // Canvas Tafel handlers
   function handleTafelStrokeComplete(event) {
     const stroke = event.detail;
-    console.log('📝 Tafel stroke complete:', stroke.strokeId);
+    console.log("📝 Tafel stroke complete:", stroke.strokeId);
 
     // Add user info to stroke
     stroke.userId = roomState.sessionId;
-    stroke.userName = user?.displayName || 'Unknown';
+    stroke.userName = user?.displayName || "Unknown";
 
     // Add to local tafel manager
     if (tafelManager) {
@@ -557,7 +566,7 @@
 
   function handleTafelErase(event) {
     const strokeIds = event.detail;
-    console.log('🗑️ Tafel erase:', strokeIds);
+    console.log("🗑️ Tafel erase:", strokeIds);
     // Already deleted locally in Canvas.svelte, just log
   }
 </script>
@@ -579,19 +588,41 @@
       on:changeName={handleChangeName}
     />
   {:else if appState === STATES.IN_ROOM}
-    <Canvas
-      {settings}
-      {websocket}
-      isMultiplayerMode={true}
-      {roomMode}
-      {activeTool}
-      {tafelManager}
-      on:tafelStrokeComplete={handleTafelStrokeComplete}
-      on:tafelErase={handleTafelErase}
-    />
+    {#if roomMode === "quiz"}
+      <!-- Quiz Mode -->
+      <QuizView
+        {websocket}
+        isHousemaster={roomState.isHousemaster}
+        sessionId={roomState.sessionId}
+        userName={user?.displayName}
+      />
+    {:else}
+      <!-- Drawing Modes (Trail/Tafel) -->
+      <Canvas
+        {settings}
+        {websocket}
+        isMultiplayerMode={true}
+        {roomMode}
+        {activeTool}
+        {tafelManager}
+        on:tafelStrokeComplete={handleTafelStrokeComplete}
+        on:tafelErase={handleTafelErase}
+      />
+
+      <TafelToolbar
+        {activeTool}
+        activeColor={settings.color}
+        brushSize={settings.strokeWidth}
+        {roomMode}
+        on:toolChange={handleToolChange}
+        on:colorChange={handleColorChange}
+        on:brushSizeChange={handleBrushSizeChange}
+        on:clearMyDrawings={handleClearMyDrawings}
+      />
+    {/if}
 
     <TopBar
-      roomCode={roomCode}
+      {roomCode}
       {roomMode}
       isHousemaster={roomState.isHousemaster}
       bind:settings
@@ -599,17 +630,6 @@
       on:modeChange={handleModeChange}
       on:settingsUpdate={handleSettingsUpdate}
       on:leave={handleLeaveRoom}
-    />
-
-    <TafelToolbar
-      {activeTool}
-      activeColor={settings.color}
-      brushSize={settings.strokeWidth}
-      {roomMode}
-      on:toolChange={handleToolChange}
-      on:colorChange={handleColorChange}
-      on:brushSizeChange={handleBrushSizeChange}
-      on:clearMyDrawings={handleClearMyDrawings}
     />
 
     <OnlineIndicator
@@ -623,7 +643,6 @@
       show={showUserList}
       on:close={closeUserList}
     />
-
   {/if}
 </main>
 
@@ -633,5 +652,4 @@
     height: 100%;
     display: block;
   }
-
 </style>

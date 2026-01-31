@@ -1,8 +1,8 @@
 <script>
-  import { createEventDispatcher } from 'svelte';
+  import { createEventDispatcher } from "svelte";
 
-  export let roomCode = '';
-  export let roomMode = 'trail';
+  export let roomCode = "";
+  export let roomMode = "trail";
   export let isHousemaster = false;
   export let settings = {};
   export let showQRCode = false;
@@ -22,7 +22,7 @@
 
   function confirmLeave() {
     showLeaveConfirm = false;
-    dispatch('leave');
+    dispatch("leave");
   }
 
   function cancelLeave() {
@@ -60,14 +60,17 @@
   }
 
   function requestModeChange() {
-    pendingMode = roomMode === 'trail' ? 'tafel' : 'trail';
+    // Cycle through modes: trail -> tafel -> quiz -> trail
+    const modes = ["trail", "tafel", "quiz"];
+    const currentIndex = modes.indexOf(roomMode);
+    pendingMode = modes[(currentIndex + 1) % modes.length];
     showModeConfirm = true;
   }
 
   function confirmModeChange() {
     showModeConfirm = false;
     if (pendingMode) {
-      dispatch('modeChange', pendingMode);
+      dispatch("modeChange", pendingMode);
     }
     pendingMode = null;
   }
@@ -78,7 +81,7 @@
   }
 
   function updateSettings() {
-    dispatch('settingsUpdate', settings);
+    dispatch("settingsUpdate", settings);
   }
 
   $: shareUrl = `${window.location.origin}?join=${roomCode}`;
@@ -88,24 +91,46 @@
 <div class="top-bar">
   <!-- Room code and share -->
   <div class="room-section">
-    <span class="code" on:click={copyCode} role="button" tabindex="0">{roomCode}</span>
-    <button class="icon-btn" class:active={copied} on:click={copyCode} title="Copy link">
+    <span class="code" on:click={copyCode} role="button" tabindex="0"
+      >{roomCode}</span
+    >
+    <button
+      class="icon-btn"
+      class:active={copied}
+      on:click={copyCode}
+      title="Copy link"
+    >
       {#if copied}
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <polyline points="20 6 9 17 4 12"/>
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <polyline points="20 6 9 17 4 12" />
         </svg>
       {:else}
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <rect x="9" y="9" width="13" height="13" rx="2"/>
-          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <rect x="9" y="9" width="13" height="13" rx="2" />
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
         </svg>
       {/if}
     </button>
     <button class="icon-btn" on:click={toggleQRCode} title="Share QR">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
-        <polyline points="16 6 12 2 8 6"/>
-        <line x1="12" y1="2" x2="12" y2="15"/>
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+      >
+        <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+        <polyline points="16 6 12 2 8 6" />
+        <line x1="12" y1="2" x2="12" y2="15" />
       </svg>
     </button>
   </div>
@@ -116,21 +141,47 @@
   {#if isHousemaster}
     <button
       class="mode-btn"
-      class:tafel={roomMode === 'tafel'}
+      class:tafel={roomMode === "tafel"}
+      class:quiz={roomMode === "quiz"}
       on:click={requestModeChange}
-      title={roomMode === 'trail' ? 'Switch to Tafel' : 'Switch to Trail'}
+      title="Switch Mode: {roomMode === 'trail'
+        ? 'Trail → Tafel'
+        : roomMode === 'tafel'
+          ? 'Tafel → Quiz'
+          : 'Quiz → Trail'}"
     >
-      {#if roomMode === 'trail'}
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-          <path d="M2 17l10 5 10-5"/>
-          <path d="M2 12l10 5 10-5"/>
+      {#if roomMode === "trail"}
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <path d="M12 2L2 7l10 5 10-5-10-5z" />
+          <path d="M2 17l10 5 10-5" />
+          <path d="M2 12l10 5 10-5" />
+        </svg>
+      {:else if roomMode === "tafel"}
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <rect x="3" y="3" width="18" height="18" rx="2" />
+          <line x1="3" y1="9" x2="21" y2="9" />
+          <line x1="9" y1="21" x2="9" y2="9" />
         </svg>
       {:else}
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <rect x="3" y="3" width="18" height="18" rx="2"/>
-          <line x1="3" y1="9" x2="21" y2="9"/>
-          <line x1="9" y1="21" x2="9" y2="9"/>
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <circle cx="12" cy="12" r="10" />
+          <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+          <line x1="12" y1="17" x2="12.01" y2="17" />
         </svg>
       {/if}
     </button>
@@ -138,10 +189,17 @@
   {/if}
 
   <!-- Settings toggle -->
-  <button class="icon-btn" class:active={showSettings} on:click={toggleSettings} title="Settings">
+  <button
+    class="icon-btn"
+    class:active={showSettings}
+    on:click={toggleSettings}
+    title="Settings"
+  >
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <circle cx="12" cy="12" r="3"/>
-      <path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/>
+      <circle cx="12" cy="12" r="3" />
+      <path
+        d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"
+      />
     </svg>
   </button>
 
@@ -150,9 +208,9 @@
   <!-- Leave button -->
   <button class="icon-btn leave-btn" on:click={requestLeave} title="Leave Room">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-      <polyline points="16 17 21 12 16 7"/>
-      <line x1="21" y1="12" x2="9" y2="12"/>
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <polyline points="16 17 21 12 16 7" />
+      <line x1="21" y1="12" x2="9" y2="12" />
     </svg>
   </button>
 </div>
@@ -162,27 +220,46 @@
   <div class="settings-panel">
     <div class="settings-header">
       <span>Settings</span>
-      <button class="close-btn" on:click={() => showSettings = false}>x</button>
+      <button class="close-btn" on:click={() => (showSettings = false)}
+        >x</button
+      >
     </div>
 
-    {#if roomMode === 'trail'}
+    {#if roomMode === "trail"}
       <div class="setting">
         <label>Trail: {(settings.lifetimeMs / 1000).toFixed(1)}s</label>
-        <input type="range" min="1000" max="30000" step="500" bind:value={settings.lifetimeMs} on:input={updateSettings}/>
+        <input
+          type="range"
+          min="1000"
+          max="30000"
+          step="500"
+          bind:value={settings.lifetimeMs}
+          on:input={updateSettings}
+        />
       </div>
     {/if}
 
     <div class="setting">
       <label>Width: {settings.strokeWidth}px</label>
-      <input type="range" min="1" max="20" bind:value={settings.strokeWidth} on:input={updateSettings}/>
+      <input
+        type="range"
+        min="1"
+        max="20"
+        bind:value={settings.strokeWidth}
+        on:input={updateSettings}
+      />
     </div>
 
     <div class="setting">
       <label>Color</label>
-      <input type="color" bind:value={settings.color} on:input={updateSettings}/>
+      <input
+        type="color"
+        bind:value={settings.color}
+        on:input={updateSettings}
+      />
     </div>
 
-    {#if roomMode === 'trail'}
+    {#if roomMode === "trail"}
       <div class="setting">
         <label>Style</label>
         <select bind:value={settings.drawStyle} on:change={updateSettings}>
@@ -192,18 +269,35 @@
       </div>
 
       <div class="setting checkbox">
-        <input type="checkbox" id="speed" bind:checked={settings.speedSettings.enabled} on:change={updateSettings}/>
+        <input
+          type="checkbox"
+          id="speed"
+          bind:checked={settings.speedSettings.enabled}
+          on:change={updateSettings}
+        />
         <label for="speed">Speed width</label>
       </div>
 
       {#if settings.speedSettings.enabled}
         <div class="setting indent">
           <label>Min: {settings.speedSettings.minWidth}px</label>
-          <input type="range" min="1" max="20" bind:value={settings.speedSettings.minWidth} on:input={updateSettings}/>
+          <input
+            type="range"
+            min="1"
+            max="20"
+            bind:value={settings.speedSettings.minWidth}
+            on:input={updateSettings}
+          />
         </div>
         <div class="setting indent">
           <label>Max: {settings.speedSettings.maxWidth}px</label>
-          <input type="range" min="1" max="40" bind:value={settings.speedSettings.maxWidth} on:input={updateSettings}/>
+          <input
+            type="range"
+            min="1"
+            max="40"
+            bind:value={settings.speedSettings.maxWidth}
+            on:input={updateSettings}
+          />
         </div>
       {/if}
     {/if}
@@ -214,8 +308,18 @@
 {#if showModeConfirm}
   <div class="confirm-modal" on:click={cancelModeChange} role="dialog">
     <div class="confirm-content" on:click|stopPropagation role="alertdialog">
-      <h3>Switch to {pendingMode === 'tafel' ? 'Tafel' : 'Multitrail'}?</h3>
-      <p>This will delete the current board.</p>
+      <h3>
+        Switch to {pendingMode === "tafel"
+          ? "Tafel"
+          : pendingMode === "quiz"
+            ? "Quiz"
+            : "Multitrail"}?
+      </h3>
+      <p>
+        This will {pendingMode === "quiz"
+          ? "start quiz mode"
+          : "delete the current board"}.
+      </p>
       <div class="confirm-buttons">
         <button class="cancel-btn" on:click={cancelModeChange}>Cancel</button>
         <button class="confirm-btn" on:click={confirmModeChange}>Switch</button>
@@ -244,9 +348,16 @@
     <div class="qr-content" on:click|stopPropagation>
       <button class="modal-close" on:click={closeQRCode}>x</button>
       <h3>Scan to Join</h3>
-      <img src={qrCodeUrl} alt="QR Code"/>
-      <p class="share-url" class:copied={urlCopied} on:click={copyUrl} role="button" tabindex="0" title="Click to copy">
-        {urlCopied ? 'Copied!' : shareUrl}
+      <img src={qrCodeUrl} alt="QR Code" />
+      <p
+        class="share-url"
+        class:copied={urlCopied}
+        on:click={copyUrl}
+        role="button"
+        tabindex="0"
+        title="Click to copy"
+      >
+        {urlCopied ? "Copied!" : shareUrl}
       </p>
     </div>
   </div>
@@ -274,7 +385,7 @@
   }
 
   .code {
-    font-family: 'Courier New', monospace;
+    font-family: "Courier New", monospace;
     font-weight: 600;
     font-size: 0.85rem;
     color: #667eea;
@@ -350,6 +461,11 @@
 
   .mode-btn.tafel {
     background: rgba(76, 175, 80, 0.6);
+    color: white;
+  }
+
+  .mode-btn.quiz {
+    background: rgba(255, 193, 7, 0.6);
     color: white;
   }
 
@@ -556,7 +672,8 @@
     justify-content: center;
   }
 
-  .cancel-btn, .confirm-btn {
+  .cancel-btn,
+  .confirm-btn {
     padding: 10px 20px;
     border-radius: 20px;
     border: none;
@@ -604,13 +721,15 @@
       font-size: 0.75rem;
     }
 
-    .icon-btn, .mode-btn {
+    .icon-btn,
+    .mode-btn {
       width: 26px;
       height: 26px;
       padding: 4px;
     }
 
-    .icon-btn svg, .mode-btn svg {
+    .icon-btn svg,
+    .mode-btn svg {
       width: 14px;
       height: 14px;
     }
