@@ -63,7 +63,10 @@
     // Host Action State
     let selectedQuizId = quizzes[0].id;
     let powerBoostActive = false;
+    let powerBoostTimeLeft = 0;
     let shockwaveUses = 3;
+    let shockwaveCooldown = 0;
+    let reinforcementsActive = false;
 
     onMount(() => {
         if (isHousemaster && canvas) {
@@ -201,7 +204,10 @@
 
         // Reset host actions for new mission
         powerBoostActive = false;
+        powerBoostTimeLeft = 0;
         shockwaveUses = 3;
+        shockwaveCooldown = 0;
+        reinforcementsActive = false;
 
         // Step 1: Tell server to start
         websocket.startQuizMission(sessionId, quiz.questions);
@@ -224,6 +230,21 @@
         if (timerInterval) clearInterval(timerInterval);
         timerInterval = setInterval(() => {
             timeLeft--;
+
+            // Host Action Timers
+            if (powerBoostTimeLeft > 0) {
+                powerBoostTimeLeft--;
+                if (powerBoostTimeLeft === 0) {
+                    powerBoostActive = false;
+                    websocket.updateQuizSettings(sessionId, {
+                        damageMultiplier: 1,
+                    });
+                }
+            }
+            if (shockwaveCooldown > 0) {
+                shockwaveCooldown--;
+            }
+
             if (timeLeft <= 0) {
                 endGame();
             }
@@ -238,20 +259,31 @@
 
     // Host Action Functions
     function togglePowerBoost() {
-        powerBoostActive = !powerBoostActive;
-        websocket.updateQuizSettings(sessionId, {
-            damageMultiplier: powerBoostActive ? 2 : 1,
-        });
+        if (powerBoostActive) {
+            powerBoostActive = false;
+            powerBoostTimeLeft = 0;
+            websocket.updateQuizSettings(sessionId, { damageMultiplier: 1 });
+        } else {
+            powerBoostActive = true;
+            powerBoostTimeLeft = 10;
+            websocket.updateQuizSettings(sessionId, { damageMultiplier: 3 });
+        }
     }
 
     function spawnReinforcements(multiplier) {
         const count = Math.max(1, users.length) * multiplier;
         spawnQueue += count;
+
+        reinforcementsActive = true;
+        setTimeout(() => {
+            reinforcementsActive = false;
+        }, 2000);
     }
 
     function fireShockwave() {
-        if (shockwaveUses <= 0) return;
+        if (shockwaveUses <= 0 || shockwaveCooldown > 0) return;
         shockwaveUses--;
+        shockwaveCooldown = 10;
 
         pulses.push({
             x: width / 2,
@@ -683,8 +715,8 @@
                 {#key countdown}
                     <div
                         class="countdown-number"
-                        in:scale={{ start: 4, duration: 900, opacity: 0 }}
-                        out:scale={{ start: 0.5, duration: 300, opacity: 0 }}
+                        in:scale={{ start: 1, duration: 400, opacity: 0 }}
+                        out:scale={{ start: 0.8, duration: 300, opacity: 0 }}
                     >
                         {countdown}
                     </div>
@@ -721,12 +753,21 @@
                     on:click={togglePowerBoost}
                 >
                     <span class="icon">⚡</span>
-                    <span class="label">POWER BOOST</span>
+                    <span class="label">3X DAMAGE</span>
+                    {#if powerBoostActive}
+                        <div class="timer-bar">
+                            <div
+                                class="timer-fill"
+                                style="width: {powerBoostTimeLeft * 10}%"
+                            ></div>
+                        </div>
+                    {/if}
                 </button>
 
                 <div class="action-group">
                     <button
                         class="action-btn wave"
+                        class:active={reinforcementsActive}
                         on:click={() => spawnReinforcements(1)}
                     >
                         <span class="icon">🌊</span>
@@ -734,6 +775,7 @@
                     </button>
                     <button
                         class="action-btn wave"
+                        class:active={reinforcementsActive}
                         on:click={() => spawnReinforcements(2)}
                     >
                         <span class="icon">🌊🌊</span>
@@ -743,11 +785,23 @@
 
                 <button
                     class="action-btn nuke"
-                    disabled={shockwaveUses <= 0}
+                    disabled={shockwaveUses <= 0 || shockwaveCooldown > 0}
                     on:click={fireShockwave}
                 >
                     <span class="icon">💥</span>
-                    <span class="label">SHOCKWAVE ({shockwaveUses})</span>
+                    <span class="label">
+                        {shockwaveCooldown > 0
+                            ? `COOLDOWN (${shockwaveCooldown}s)`
+                            : `SHOCKWAVE (${shockwaveUses})`}
+                    </span>
+                    {#if shockwaveCooldown > 0}
+                        <div class="timer-bar">
+                            <div
+                                class="timer-fill cooldown"
+                                style="width: {shockwaveCooldown * 10}%"
+                            ></div>
+                        </div>
+                    {/if}
                 </button>
             </div>
         {/if}
@@ -755,9 +809,22 @@
         {#if gameState === "VICTORY"}
             <div class="overlay victory glass" in:scale>
                 <h1>MISSION DEBRIEF</h1>
+                <div class="badge-container">
+                    {#if strikes === 0}
+                        <div class="badge perfect">
+                            PLATINUM: PERFECT DEFENSE
+                        </div>
+                    {:else if strikes <= 3}
+                        <div class="badge valiant">GOLD: VALIANT EFFORT</div>
+                    {:else}
+                        <div class="badge complete">
+                            SILVER: MISSION COMPLETE
+                        </div>
+                    {/if}
+                </div>
                 <h2 class="result-text">
                     {strikes === 0
-                        ? "PERFECT DEFENSE!"
+                        ? "0 HULL BREACHES"
                         : `${strikes} HULL BREACHES`}
                 </h2>
 

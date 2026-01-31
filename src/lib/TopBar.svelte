@@ -1,5 +1,6 @@
 <script>
-  import { createEventDispatcher } from "svelte";
+  import { createEventDispatcher, onMount } from "svelte";
+  import { fly, fade } from "svelte/transition";
 
   export let roomCode = "";
   export let roomMode = "trail";
@@ -13,6 +14,33 @@
   let urlCopied = false;
   let showSettings = false;
   let showLeaveConfirm = false;
+  let showModeMenu = false;
+  let menuTimeout = null;
+
+  function resetMenuTimer() {
+    if (menuTimeout) clearTimeout(menuTimeout);
+    menuTimeout = setTimeout(() => {
+      showModeMenu = false;
+    }, 3000);
+  }
+
+  function toggleModeMenu(e) {
+    if (e) e.stopPropagation();
+    showModeMenu = !showModeMenu;
+    if (showModeMenu) resetMenuTimer();
+  }
+
+  function handleModeChange(mode) {
+    dispatch("modeChange", mode);
+    showModeMenu = false;
+    if (menuTimeout) clearTimeout(menuTimeout);
+  }
+
+  onMount(() => {
+    return () => {
+      if (menuTimeout) clearTimeout(menuTimeout);
+    };
+  });
 
   function requestLeave() {
     showLeaveConfirm = true;
@@ -118,11 +146,12 @@
 
   <!-- Mode selection (for housemaster) -->
   {#if isHousemaster}
-    <div class="mode-selector">
+    <div class="mode-container" on:mousemove={resetMenuTimer}>
       <button
-        class="mode-icon-btn {roomMode === 'trail' ? 'active' : ''}"
-        on:click={() => dispatch("modeChange", "trail")}
-        title="Multitrail"
+        class="icon-btn mode-trigger"
+        class:active={showModeMenu}
+        on:click={toggleModeMenu}
+        title="Change Mode"
       >
         <svg
           viewBox="0 0 24 24"
@@ -130,45 +159,76 @@
           stroke="currentColor"
           stroke-width="2"
         >
-          <path d="M12 2L2 7l10 5 10-5-10-5z" />
-          <path d="M2 17l10 5 10-5" />
-          <path d="M2 12l10 5 10-5" />
+          <circle cx="12" cy="12" r="1" />
+          <circle cx="19" cy="12" r="1" />
+          <circle cx="5" cy="12" r="1" />
         </svg>
       </button>
 
-      <button
-        class="mode-icon-btn {roomMode === 'tafel' ? 'active' : ''} tafel"
-        on:click={() => dispatch("modeChange", "tafel")}
-        title="Tafel"
-      >
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
+      {#if showModeMenu}
+        <div
+          class="mode-menu glass"
+          in:fly={{ x: 20, duration: 200 }}
+          out:fade={{ duration: 150 }}
         >
-          <rect x="3" y="3" width="18" height="18" rx="2" />
-          <line x1="3" y1="9" x2="21" y2="9" />
-          <line x1="9" y1="21" x2="9" y2="9" />
-        </svg>
-      </button>
+          <button
+            class="mode-item {roomMode === 'trail' ? 'active' : ''}"
+            on:click={() => handleModeChange("trail")}
+          >
+            <div class="mode-icon">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                <path d="M2 17l10 5 10-5" />
+                <path d="M2 12l10 5 10-5" />
+              </svg>
+            </div>
+            <span>Multitrail</span>
+          </button>
 
-      <button
-        class="mode-icon-btn {roomMode === 'quiz' ? 'active' : ''} quiz"
-        on:click={() => dispatch("modeChange", "quiz")}
-        title="Quiz Mission"
-      >
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-        >
-          <circle cx="12" cy="12" r="10" />
-          <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
-          <line x1="12" y1="17" x2="12.01" y2="17" />
-        </svg>
-      </button>
+          <button
+            class="mode-item {roomMode === 'tafel' ? 'active' : ''} tafel"
+            on:click={() => handleModeChange("tafel")}
+          >
+            <div class="mode-icon">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <rect x="3" y="3" width="18" height="18" rx="2" />
+                <line x1="3" y1="9" x2="21" y2="9" />
+                <line x1="9" y1="21" x2="9" y2="9" />
+              </svg>
+            </div>
+            <span>Tafel</span>
+          </button>
+
+          <button
+            class="mode-item {roomMode === 'quiz' ? 'active' : ''} quiz"
+            on:click={() => handleModeChange("quiz")}
+          >
+            <div class="mode-icon">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+                <line x1="12" y1="17" x2="12.01" y2="17" />
+              </svg>
+            </div>
+            <span>Quiz Mission</span>
+          </button>
+        </div>
+      {/if}
     </div>
     <div class="divider"></div>
   {/if}
@@ -406,53 +466,71 @@
     margin: 0 2px;
   }
 
-  .mode-selector {
+  .mode-container {
+    position: relative;
     display: flex;
-    gap: 4px;
-    background: rgba(255, 255, 255, 0.05);
-    padding: 2px;
-    border-radius: 16px;
+    align-items: center;
   }
 
-  .mode-icon-btn {
-    width: 28px;
-    height: 28px;
-    border-radius: 14px;
-    border: none;
+  .mode-menu {
+    position: absolute;
+    top: 40px;
+    right: 0;
+    background: rgba(15, 23, 42, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 160px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+  }
+
+  .mode-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
     background: transparent;
-    color: rgba(255, 255, 255, 0.5);
+    border: none;
+    color: rgba(255, 255, 255, 0.6);
     cursor: pointer;
+    border-radius: 8px;
+    transition: all 0.2s;
+    font-size: 0.85rem;
+    font-weight: 500;
+  }
+
+  .mode-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: white;
+  }
+
+  .mode-item.active {
+    background: rgba(102, 126, 234, 0.15);
+    color: #667eea;
+  }
+
+  .mode-item.tafel.active {
+    background: rgba(76, 175, 80, 0.15);
+    color: #4caf50;
+  }
+
+  .mode-item.quiz.active {
+    background: rgba(255, 193, 7, 0.15);
+    color: #ffc107;
+  }
+
+  .mode-icon {
+    width: 24px;
+    height: 24px;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.2s;
-    padding: 5px;
   }
 
-  .mode-icon-btn:hover {
-    color: rgba(255, 255, 255, 0.9);
-    background: rgba(255, 255, 255, 0.1);
-  }
-
-  .mode-icon-btn.active {
-    background: rgba(102, 126, 234, 0.3);
-    color: #667eea;
-    box-shadow: 0 0 10px rgba(102, 126, 234, 0.2);
-  }
-
-  .mode-icon-btn.tafel.active {
-    background: rgba(76, 175, 80, 0.2);
-    color: #4caf50;
-    box-shadow: 0 0 10px rgba(76, 175, 80, 0.2);
-  }
-
-  .mode-icon-btn.quiz.active {
-    background: rgba(255, 193, 7, 0.2);
-    color: #ffc107;
-    box-shadow: 0 0 10px rgba(255, 193, 7, 0.2);
-  }
-
-  .mode-icon-btn svg {
+  .mode-icon svg {
     width: 16px;
     height: 16px;
   }
