@@ -234,10 +234,6 @@
     console.log("✅ State changed to IN_ROOM");
     // Request fullscreen on mobile to hide URL bar
     setTimeout(() => requestFullscreen(), 500);
-    // Show share modal after room creation
-    setTimeout(() => {
-      showShareModal = true;
-    }, 600);
   }
 
   function handleJoinRoom({ detail: code }) {
