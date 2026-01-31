@@ -61,8 +61,27 @@
             loop();
         }
 
-        const unsubscribe = websocket.subscribe((msg) => {
-            handleMessage(msg);
+        // Subscribe to store updates for user list
+        const unsubscribe = websocket.subscribe((state) => {
+            if (state && state.rooms) {
+                console.log(
+                    "[QuizView] 📋 Store update: rooms =",
+                    state.rooms.length,
+                );
+                users = state.rooms.filter((u) => !u.isHousemaster);
+            }
+        });
+
+        // Event listeners for game logic
+        const handlers = {
+            towerShot: (e) => handleTowerShot(e.detail),
+            pulse: (e) => handlePulseEvent(e.detail),
+            quizMissionStarted: (e) => handleMissionStarted(e.detail),
+            quizResult: (e) => handleQuizResult(e.detail),
+        };
+
+        Object.entries(handlers).forEach(([event, handler]) => {
+            window.addEventListener(event, handler);
         });
 
         return () => {
@@ -71,6 +90,9 @@
                 cancelAnimationFrame(animationFrame);
             }
             unsubscribe();
+            Object.entries(handlers).forEach(([event, handler]) => {
+                window.removeEventListener(event, handler);
+            });
         };
     });
 
@@ -85,34 +107,36 @@
         }
     }
 
-    function handleMessage(msg) {
-        if (msg.type === "rooms") {
-            users = msg.data.filter((u) => !u.isHousemaster);
+    function handleTowerShot(data) {
+        if (isHousemaster) {
+            console.log("[QuizView] 🔫 Laser Shot!", data);
+            fireLaser(data);
+            updateLeaderboard(data);
         }
+    }
 
-        // Host receives shots
-        if (msg.type === "towerShot" && isHousemaster) {
-            console.log("[QuizView] 🔫 Laser Shot!", msg.data);
-            fireLaser(msg.data);
-            updateLeaderboard(msg.data);
+    function handlePulseEvent(data) {
+        if (isHousemaster) {
+            console.log("[QuizView] 📡 Pulse received from", data.fromName);
+            handlePulse(data);
         }
+    }
 
-        // Host receives pulses
-        if (msg.type === "pulse" && isHousemaster) {
-            handlePulse(msg.data);
-        }
-
-        // Student receives quiz start
-        if (msg.type === "quizMissionStarted" && !isHousemaster) {
-            console.log("[QuizView] 🚀 Mission Started!", msg.data);
-            questions = msg.data.questions;
+    function handleMissionStarted(data) {
+        if (!isHousemaster) {
+            console.log("[QuizView] 🚀 Mission Started!", data);
+            questions = data.questions;
             gameState = "QUIZ";
             currentQuestionIndex = 0;
+            streak = 0;
+            totalScore = 0;
         }
+    }
 
-        // Student receives quiz results
-        if (msg.type === "quizResult" && !isHousemaster) {
-            const { streak: newStreak, totalScore: newTotal } = msg.data;
+    function handleQuizResult(data) {
+        if (!isHousemaster) {
+            console.log("[QuizView] 📊 Quiz Result:", data);
+            const { streak: newStreak, totalScore: newTotal } = data;
             streak = newStreak;
             totalScore = newTotal;
 
