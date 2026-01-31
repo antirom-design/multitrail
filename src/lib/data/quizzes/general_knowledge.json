@@ -1,0 +1,46 @@
+[
+    {
+        "id": 1,
+        "text": "What is 2 + 2?",
+        "options": [
+            "3",
+            "4",
+            "5",
+            "Fish"
+        ],
+        "correctIndex": 1
+    },
+    {
+        "id": 2,
+        "text": "Capital of France?",
+        "options": [
+            "London",
+            "Berlin",
+            "Madrid",
+            "Paris"
+        ],
+        "correctIndex": 3
+    },
+    {
+        "id": 3,
+        "text": "H2O is?",
+        "options": [
+            "Water",
+            "Gold",
+            "Silver",
+            "Air"
+        ],
+        "correctIndex": 0
+    },
+    {
+        "id": 4,
+        "text": "Speed of light?",
+        "options": [
+            "Fast",
+            "Very Fast",
+            "299,792 km/s",
+            "Slow"
+        ],
+        "correctIndex": 2
+    }
+]

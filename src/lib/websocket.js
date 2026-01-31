@@ -322,6 +322,11 @@ export function createWebSocket() {
     send('endQuizMission', { sessionId })
   }
 
+  function updateQuizSettings(sessionId, settings) {
+    console.log('⚙️ updateQuizSettings() called:', settings);
+    send('updateQuizSettings', { sessionId, settings })
+  }
+
   function sendPulse(sessionId) {
     console.log('📡 sendPulse() called');
     send('pulse', { sessionId })
@@ -367,6 +372,7 @@ export function createWebSocket() {
     startQuizMission,
     submitQuizAnswer,
     endQuizMission,
+    updateQuizSettings,
     sendPulse,
     disconnect,
     on

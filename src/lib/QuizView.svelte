@@ -1,6 +1,7 @@
 <script>
     import { onMount } from "svelte";
     import { fade, scale, fly } from "svelte/transition";
+    import { quizzes } from "./data/quizzes";
 
     export let websocket;
     export let isHousemaster;
@@ -57,6 +58,11 @@
         text: "#ffffff",
         accent: "#FBBF24",
     };
+
+    // Host Action State
+    let selectedQuizId = quizzes[0].id;
+    let powerBoostActive = false;
+    let shockwaveUses = 3;
 
     onMount(() => {
         if (isHousemaster && canvas) {
@@ -188,34 +194,15 @@
     }
 
     function initiateMission() {
-        // Step 1: Tell server to start (which broadcasts to all, including host)
-        websocket.startQuizMission(sessionId, [
-            {
-                id: 1,
-                text: "What is 2 + 2?",
-                options: ["3", "4", "5", "Fish"],
-                correctIndex: 1,
-            },
-            {
-                id: 2,
-                text: "Capital of France?",
-                options: ["London", "Berlin", "Madrid", "Paris"],
-                correctIndex: 3,
-            },
-            {
-                id: 3,
-                text: "H2O is?",
-                options: ["Water", "Gold", "Silver", "Air"],
-                correctIndex: 0,
-            },
-            {
-                id: 4,
-                text: "Speed of light?",
-                options: ["Fast", "Very Fast", "299,792 km/s", "Slow"],
-                correctIndex: 2,
-            },
-        ]);
-        // handleMissionStarted will trigger the countdown
+        const quiz = quizzes.find((q) => q.id === selectedQuizId);
+        if (!quiz) return;
+
+        // Reset host actions for new mission
+        powerBoostActive = false;
+        shockwaveUses = 3;
+
+        // Step 1: Tell server to start
+        websocket.startQuizMission(sessionId, quiz.questions);
     }
 
     function startGame() {
@@ -244,6 +231,44 @@
     function endGame() {
         if (isHousemaster) {
             websocket.endQuizMission(sessionId);
+        }
+    }
+
+    // Host Action Functions
+    function togglePowerBoost() {
+        powerBoostActive = !powerBoostActive;
+        websocket.updateQuizSettings(sessionId, {
+            damageMultiplier: powerBoostActive ? 2 : 1,
+        });
+    }
+
+    function spawnReinforcements(multiplier) {
+        const count = Math.max(1, users.length) * multiplier;
+        spawnQueue += count;
+    }
+
+    function fireShockwave() {
+        if (shockwaveUses <= 0) return;
+        shockwaveUses--;
+
+        pulses.push({
+            x: width / 2,
+            y: height / 2,
+            radius: 0,
+            maxRadius: Math.max(width, height),
+            opacity: 1,
+            color: "#FBBF24",
+            label: "SHOCKWAVE",
+        });
+
+        for (const asteroid of asteroids) {
+            if (asteroid.destroyed) continue;
+            asteroid.hp -= 10;
+            if (asteroid.hp <= 0) {
+                asteroid.destroyed = true;
+                asteroidsDestroyed++;
+                createParticles(asteroid.x, asteroid.y, COLORS.asteroid, 10);
+            }
         }
     }
 
@@ -612,6 +637,22 @@
                     </p>
                 </div>
 
+                <div class="quiz-selector glass">
+                    <h3>SELECT MISSION</h3>
+                    <div class="quiz-options">
+                        {#each quizzes as quiz}
+                            <button
+                                class="quiz-opt-btn"
+                                class:active={selectedQuizId === quiz.id}
+                                on:click={() => (selectedQuizId = quiz.id)}
+                            >
+                                <div class="opt-name">{quiz.name}</div>
+                                <div class="opt-desc">{quiz.description}</div>
+                            </button>
+                        {/each}
+                    </div>
+                </div>
+
                 <div class="player-grid">
                     {#each users as user}
                         <div class="player-bubble" transition:scale>
@@ -668,6 +709,44 @@
                         {asteroidsDestroyed}
                     </div>
                 </div>
+            </div>
+
+            <!-- Host Action Panel -->
+            <div class="actions-panel glass">
+                <button
+                    class="action-btn power"
+                    class:active={powerBoostActive}
+                    on:click={togglePowerBoost}
+                >
+                    <span class="icon">⚡</span>
+                    <span class="label">POWER BOOST</span>
+                </button>
+
+                <div class="action-group">
+                    <button
+                        class="action-btn wave"
+                        on:click={() => spawnReinforcements(1)}
+                    >
+                        <span class="icon">🌊</span>
+                        <span class="label">WAVE 1</span>
+                    </button>
+                    <button
+                        class="action-btn wave"
+                        on:click={() => spawnReinforcements(2)}
+                    >
+                        <span class="icon">🌊🌊</span>
+                        <span class="label">WAVE 2</span>
+                    </button>
+                </div>
+
+                <button
+                    class="action-btn nuke"
+                    disabled={shockwaveUses <= 0}
+                    on:click={fireShockwave}
+                >
+                    <span class="icon">💥</span>
+                    <span class="label">SHOCKWAVE ({shockwaveUses})</span>
+                </button>
             </div>
         {/if}
 
@@ -902,6 +981,63 @@
         backdrop-filter: blur(5px);
     }
 
+    /* Quiz Selector Styling */
+    .quiz-selector {
+        width: 100%;
+        max-width: 600px;
+        padding: 2rem;
+        margin: 2rem 0;
+        text-align: left;
+    }
+
+    .quiz-selector h3 {
+        font-size: 0.8rem;
+        letter-spacing: 3px;
+        color: rgba(255, 255, 255, 0.4);
+        margin-bottom: 1.5rem;
+    }
+
+    .quiz-options {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+    }
+
+    .quiz-opt-btn {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        padding: 1.5rem;
+        border-radius: 16px;
+        cursor: pointer;
+        text-align: left;
+        transition: all 0.2s;
+        color: white;
+    }
+
+    .quiz-opt-btn:hover {
+        background: rgba(255, 255, 255, 0.08);
+        border-color: rgba(255, 255, 255, 0.3);
+        transform: translateY(-2px);
+    }
+
+    .quiz-opt-btn.active {
+        background: rgba(78, 205, 196, 0.1);
+        border-color: #4ecdc4;
+        box-shadow: 0 0 20px rgba(78, 205, 196, 0.2);
+    }
+
+    .opt-name {
+        font-weight: 800;
+        font-size: 1.1rem;
+        margin-bottom: 0.4rem;
+    }
+
+    .opt-desc {
+        font-size: 0.85rem;
+        opacity: 0.5;
+        line-height: 1.4;
+    }
+
     .status-dot {
         width: 8px;
         height: 8px;
@@ -986,6 +1122,81 @@
         align-items: center;
         justify-content: center;
         pointer-events: auto;
+    }
+
+    /* Actions Panel Styling */
+    .actions-panel {
+        position: fixed;
+        bottom: 24px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+        padding: 1rem 2rem;
+        border-radius: 24px;
+        z-index: 1000;
+        pointer-events: auto;
+    }
+
+    .action-btn {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: white;
+        transition: all 0.2s;
+        opacity: 0.6;
+        min-width: 80px;
+    }
+
+    .action-btn:hover:not(:disabled) {
+        opacity: 1;
+        transform: scale(1.1);
+    }
+
+    .action-btn:active:not(:disabled) {
+        transform: scale(0.95);
+    }
+
+    .action-btn:disabled {
+        opacity: 0.1;
+        cursor: not-allowed;
+    }
+
+    .action-btn.active {
+        opacity: 1;
+    }
+
+    .action-btn .icon {
+        font-size: 1.8rem;
+    }
+
+    .action-btn .label {
+        font-size: 0.65rem;
+        font-weight: 800;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+    }
+
+    .action-btn.power.active {
+        color: #fbbf24;
+        text-shadow: 0 0 15px rgba(251, 191, 36, 0.5);
+    }
+
+    .action-btn.nuke:not(:disabled) {
+        color: #ef4444;
+    }
+
+    .action-group {
+        display: flex;
+        gap: 1rem;
+        padding: 0 1.5rem;
+        border-left: 1px solid rgba(255, 255, 255, 0.1);
+        border-right: 1px solid rgba(255, 255, 255, 0.1);
     }
 
     .hud {

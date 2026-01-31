@@ -1,0 +1,46 @@
+[
+    {
+        "id": 1,
+        "text": "Which planet is known as the Red Planet?",
+        "options": [
+            "Venus",
+            "Mars",
+            "Jupiter",
+            "Saturn"
+        ],
+        "correctIndex": 1
+    },
+    {
+        "id": 2,
+        "text": "What is the largest moon of Saturn?",
+        "options": [
+            "Europa",
+            "Ganymede",
+            "Titan",
+            "Callisto"
+        ],
+        "correctIndex": 2
+    },
+    {
+        "id": 3,
+        "text": "Who was the first person to walk on the moon?",
+        "options": [
+            "Buzz Aldrin",
+            "Neil Armstrong",
+            "Yuri Gagarin",
+            "John Glenn"
+        ],
+        "correctIndex": 1
+    },
+    {
+        "id": 4,
+        "text": "Which galaxy is the Earth located in?",
+        "options": [
+            "Andromeda",
+            "Milky Way",
+            "Sombrero",
+            "Triangulum"
+        ],
+        "correctIndex": 1
+    }
+]
