@@ -226,9 +226,10 @@
     console.log("🎨 User color assigned:", settings.color);
 
     // Save to sessionStorage for reload persistence
+    sessionStorage.setItem("multitrail_room_code", roomCode);
     sessionStorage.setItem("multitrail_color", settings.color);
 
-    roomState.isHousemaster = true;
+    roomState = { ...roomState, isHousemaster: true };
 
     console.log("🔄 Changing state to IN_ROOM...");
     appState = STATES.IN_ROOM;
@@ -347,9 +348,12 @@
 
         if (state.rooms && state.rooms.length > 0) {
           console.log("📡 Received room list:", state.rooms);
-          roomState.users = state.rooms;
-          roomState.sessionId = state.sessionId;
-          roomState.isHousemaster = state.isHousemaster;
+          roomState = {
+            ...roomState,
+            users: state.rooms,
+            sessionId: state.sessionId,
+            isHousemaster: state.isHousemaster,
+          };
           console.log("✅ Room state updated:", roomState);
         }
       });
