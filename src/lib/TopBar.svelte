@@ -61,10 +61,6 @@
     dispatch("settingsUpdate", settings);
   }
 
-  function updateSettings() {
-    dispatch("settingsUpdate", settings);
-  }
-
   $: shareUrl = `${window.location.origin}?join=${roomCode}`;
   $: qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(shareUrl)}`;
 </script>
