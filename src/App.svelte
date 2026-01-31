@@ -226,8 +226,9 @@
     console.log("🎨 User color assigned:", settings.color);
 
     // Save to sessionStorage for reload persistence
-    sessionStorage.setItem("multitrail_room_code", roomCode);
     sessionStorage.setItem("multitrail_color", settings.color);
+
+    roomState.isHousemaster = true;
 
     console.log("🔄 Changing state to IN_ROOM...");
     appState = STATES.IN_ROOM;

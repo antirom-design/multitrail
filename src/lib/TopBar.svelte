@@ -12,8 +12,6 @@
   let copied = false;
   let urlCopied = false;
   let showSettings = false;
-  let showModeConfirm = false;
-  let pendingMode = null;
   let showLeaveConfirm = false;
 
   function requestLeave() {
@@ -59,25 +57,8 @@
     showQRCode = false;
   }
 
-  function requestModeChange() {
-    // Cycle through modes: trail -> tafel -> quiz -> trail
-    const modes = ["trail", "tafel", "quiz"];
-    const currentIndex = modes.indexOf(roomMode);
-    pendingMode = modes[(currentIndex + 1) % modes.length];
-    showModeConfirm = true;
-  }
-
-  function confirmModeChange() {
-    showModeConfirm = false;
-    if (pendingMode) {
-      dispatch("modeChange", pendingMode);
-    }
-    pendingMode = null;
-  }
-
-  function cancelModeChange() {
-    showModeConfirm = false;
-    pendingMode = null;
+  function updateSettings() {
+    dispatch("settingsUpdate", settings);
   }
 
   function updateSettings() {
@@ -137,20 +118,14 @@
 
   <div class="divider"></div>
 
-  <!-- Mode toggle (for housemaster) -->
+  <!-- Mode selection (for housemaster) -->
   {#if isHousemaster}
-    <button
-      class="mode-btn"
-      class:tafel={roomMode === "tafel"}
-      class:quiz={roomMode === "quiz"}
-      on:click={requestModeChange}
-      title="Switch Mode: {roomMode === 'trail'
-        ? 'Trail → Tafel'
-        : roomMode === 'tafel'
-          ? 'Tafel → Quiz'
-          : 'Quiz → Trail'}"
-    >
-      {#if roomMode === "trail"}
+    <div class="mode-selector">
+      <button
+        class="mode-icon-btn {roomMode === 'trail' ? 'active' : ''}"
+        on:click={() => dispatch("modeChange", "trail")}
+        title="Multitrail"
+      >
         <svg
           viewBox="0 0 24 24"
           fill="none"
@@ -161,7 +136,13 @@
           <path d="M2 17l10 5 10-5" />
           <path d="M2 12l10 5 10-5" />
         </svg>
-      {:else if roomMode === "tafel"}
+      </button>
+
+      <button
+        class="mode-icon-btn {roomMode === 'tafel' ? 'active' : ''} tafel"
+        on:click={() => dispatch("modeChange", "tafel")}
+        title="Tafel"
+      >
         <svg
           viewBox="0 0 24 24"
           fill="none"
@@ -172,7 +153,13 @@
           <line x1="3" y1="9" x2="21" y2="9" />
           <line x1="9" y1="21" x2="9" y2="9" />
         </svg>
-      {:else}
+      </button>
+
+      <button
+        class="mode-icon-btn {roomMode === 'quiz' ? 'active' : ''} quiz"
+        on:click={() => dispatch("modeChange", "quiz")}
+        title="Quiz Mission"
+      >
         <svg
           viewBox="0 0 24 24"
           fill="none"
@@ -183,8 +170,8 @@
           <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
           <line x1="12" y1="17" x2="12.01" y2="17" />
         </svg>
-      {/if}
-    </button>
+      </button>
+    </div>
     <div class="divider"></div>
   {/if}
 
@@ -304,30 +291,6 @@
   </div>
 {/if}
 
-<!-- Mode change confirmation -->
-{#if showModeConfirm}
-  <div class="confirm-modal" on:click={cancelModeChange} role="dialog">
-    <div class="confirm-content" on:click|stopPropagation role="alertdialog">
-      <h3>
-        Switch to {pendingMode === "tafel"
-          ? "Tafel"
-          : pendingMode === "quiz"
-            ? "Quiz"
-            : "Multitrail"}?
-      </h3>
-      <p>
-        This will {pendingMode === "quiz"
-          ? "start quiz mode"
-          : "delete the current board"}.
-      </p>
-      <div class="confirm-buttons">
-        <button class="cancel-btn" on:click={cancelModeChange}>Cancel</button>
-        <button class="confirm-btn" on:click={confirmModeChange}>Switch</button>
-      </div>
-    </div>
-  </div>
-{/if}
-
 <!-- Leave confirmation modal -->
 {#if showLeaveConfirm}
   <div class="confirm-modal" on:click={cancelLeave} role="dialog">
@@ -440,36 +403,53 @@
     margin: 0 2px;
   }
 
-  .mode-btn {
+  .mode-selector {
+    display: flex;
+    gap: 4px;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 2px;
+    border-radius: 16px;
+  }
+
+  .mode-icon-btn {
     width: 28px;
     height: 28px;
-    border-radius: 50%;
+    border-radius: 14px;
     border: none;
-    background: rgba(255, 255, 255, 0.1);
-    color: rgba(255, 255, 255, 0.8);
+    background: transparent;
+    color: rgba(255, 255, 255, 0.5);
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.15s;
+    transition: all 0.2s;
     padding: 5px;
   }
 
-  .mode-btn:hover {
-    background: rgba(255, 255, 255, 0.2);
+  .mode-icon-btn:hover {
+    color: rgba(255, 255, 255, 0.9);
+    background: rgba(255, 255, 255, 0.1);
   }
 
-  .mode-btn.tafel {
-    background: rgba(76, 175, 80, 0.6);
-    color: white;
+  .mode-icon-btn.active {
+    background: rgba(102, 126, 234, 0.3);
+    color: #667eea;
+    box-shadow: 0 0 10px rgba(102, 126, 234, 0.2);
   }
 
-  .mode-btn.quiz {
-    background: rgba(255, 193, 7, 0.6);
-    color: white;
+  .mode-icon-btn.tafel.active {
+    background: rgba(76, 175, 80, 0.2);
+    color: #4caf50;
+    box-shadow: 0 0 10px rgba(76, 175, 80, 0.2);
   }
 
-  .mode-btn svg {
+  .mode-icon-btn.quiz.active {
+    background: rgba(255, 193, 7, 0.2);
+    color: #ffc107;
+    box-shadow: 0 0 10px rgba(255, 193, 7, 0.2);
+  }
+
+  .mode-icon-btn svg {
     width: 16px;
     height: 16px;
   }
