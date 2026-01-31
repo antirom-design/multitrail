@@ -25,6 +25,7 @@
     let questions = [];
     let currentQuestionIndex = 0;
     let streak = 0;
+    let correctCount = 0;
     let totalScore = 0;
 
     // Current Question
@@ -160,9 +161,13 @@
     function handleQuizResult(data) {
         if (!isHousemaster) {
             console.log("[QuizView] 📊 Quiz Result:", data);
-            const { streak: newStreak, totalScore: newTotal } = data;
+            const { streak: newStreak, totalScore: newTotal, correct } = data;
             streak = newStreak;
             totalScore = newTotal;
+
+            if (correct) {
+                correctCount++;
+            }
 
             currentQuestionIndex =
                 (currentQuestionIndex + 1) % questions.length;
@@ -800,10 +805,9 @@
         {/if}
 
         <div class="hud">
-            <div class="stat glass" class:hot={streak >= 3}>
-                <span class="label">STREAK</span>
-                <span class="value">{streak < 3 ? streak : `🔥 ${streak}`}</span
-                >
+            <div class="stat glass">
+                <span class="label">HITS</span>
+                <span class="value">{correctCount}</span>
             </div>
             <div class="stat glass">
                 <span class="label">CREDITS</span>
@@ -1229,11 +1233,6 @@
         align-items: center;
     }
 
-    .stat.hot {
-        border-color: #ff6b6b;
-        box-shadow: 0 0 15px rgba(255, 107, 107, 0.3);
-    }
-
     .label {
         font-size: 0.6rem;
         color: rgba(255, 255, 255, 0.4);
@@ -1258,16 +1257,8 @@
         font-size: 2rem;
     }
 
-    .value.danger {
-        color: #fe6b6b;
-    }
-
     .value.success {
         color: #4ecdc4;
-    }
-
-    .stat.hot .value {
-        color: #ff6b6b;
     }
 
     .leaderboard {

@@ -116,8 +116,16 @@
     }
   }
 
+  // Persistence logic
+  $: if (appState) sessionStorage.setItem("multitrail_app_state", appState);
+  $: if (roomCode) sessionStorage.setItem("multitrail_room_code", roomCode);
+  $: if (roomMode) sessionStorage.setItem("multitrail_room_mode", roomMode);
+  $: if (sessionId) sessionStorage.setItem("multitrail_session_id", sessionId);
+  $: if (user && user.displayName)
+    localStorage.setItem("multitrail_last_name", user.displayName);
+
   onMount(() => {
-    // Generate session ID
+    // Generate or restore session ID
     let storedSessionId = sessionStorage.getItem("multitrail_session_id");
     if (!storedSessionId) {
       storedSessionId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -126,31 +134,40 @@
     sessionId = storedSessionId;
     console.log("🆔 Session ID:", sessionId);
 
-    // Check for room code in URL (QR scan)
+    // Restore name from long-term storage
+    const savedName = localStorage.getItem("multitrail_last_name");
+    if (savedName) {
+      user = { displayName: savedName };
+      console.log("👤 Restored user name:", savedName);
+    }
+
+    // Check for room code in URL (QR scan takes precedence)
     const urlParams = new URLSearchParams(window.location.search);
     const joinCode = urlParams.get("join");
     if (joinCode) {
       autoJoinRoomCode = joinCode.toUpperCase();
       console.log("🔗 Auto-join room code from URL:", autoJoinRoomCode);
-      // Clean up URL
       window.history.replaceState({}, document.title, window.location.pathname);
     }
 
     // Check for active room session (for page reload)
     const savedRoomCode = sessionStorage.getItem("multitrail_room_code");
     const savedColor = sessionStorage.getItem("multitrail_color");
-    if (savedRoomCode && !autoJoinRoomCode) {
-      autoJoinRoomCode = savedRoomCode;
-      if (savedColor) {
-        settings.color = savedColor;
-      }
-      console.log("🔄 Restoring room session:", savedRoomCode);
-    }
+    const savedState = sessionStorage.getItem("multitrail_app_state");
+    const savedMode = sessionStorage.getItem("multitrail_room_mode");
 
-    // Check for saved name
-    const savedName = localStorage.getItem("multitrail_last_name");
-    if (savedName && appState === STATES.TESTING) {
-      // We'll set this after tests pass
+    if (savedRoomCode && !autoJoinRoomCode) {
+      roomCode = savedRoomCode;
+      if (savedColor) settings.color = savedColor;
+      if (savedMode) roomMode = savedMode;
+      console.log("🔄 Restoring room session:", savedRoomCode);
+
+      // If we were in a room, and have a name, jump back
+      if (savedState === STATES.IN_ROOM && user) {
+        console.log("🚀 Fast recovery to IN_ROOM");
+        // We'll set appState here, which will trigger websocket connection
+        appState = STATES.IN_ROOM;
+      }
     }
   });
 
