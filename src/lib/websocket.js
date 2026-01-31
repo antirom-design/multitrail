@@ -190,6 +190,11 @@ export function createWebSocket() {
         window.dispatchEvent(new CustomEvent('pulse', { detail: data }))
         break
 
+      case 'quizMissionEnded':
+        console.log('🏁 Dispatching quizMissionEnded event:', data);
+        window.dispatchEvent(new CustomEvent('quizMissionEnded', { detail: data }))
+        break
+
       case 'error':
         console.error('❌ Server error:', message.message)
         break
@@ -312,6 +317,11 @@ export function createWebSocket() {
     send('submitQuizAnswer', { sessionId, questionId, answerIndex })
   }
 
+  function endQuizMission(sessionId) {
+    console.log('🏁 endQuizMission() called');
+    send('endQuizMission', { sessionId })
+  }
+
   function sendPulse(sessionId) {
     console.log('📡 sendPulse() called');
     send('pulse', { sessionId })
@@ -356,6 +366,7 @@ export function createWebSocket() {
     sendUserColorChange,
     startQuizMission,
     submitQuizAnswer,
+    endQuizMission,
     sendPulse,
     disconnect,
     on

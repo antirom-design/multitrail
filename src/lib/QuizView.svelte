@@ -44,6 +44,11 @@
     const SPAWN_RATE = 1500;
     let lastSpawnTime = 0;
 
+    // Countdown and Timer
+    let countdown = null;
+    let timeLeft = 60;
+    let timerInterval;
+
     const COLORS = {
         ship: "#4ECDC4",
         asteroid: "#A0AEC0",
@@ -77,6 +82,7 @@
             towerShot: (e) => handleTowerShot(e.detail),
             pulse: (e) => handlePulseEvent(e.detail),
             quizMissionStarted: (e) => handleMissionStarted(e.detail),
+            quizMissionEnded: (e) => handleMissionEnded(e.detail),
             quizResult: (e) => handleQuizResult(e.detail),
         };
 
@@ -123,14 +129,26 @@
     }
 
     function handleMissionStarted(data) {
-        if (!isHousemaster) {
-            console.log("[QuizView] 🚀 Mission Started!", data);
-            questions = data.questions;
-            gameState = "QUIZ";
-            currentQuestionIndex = 0;
-            streak = 0;
-            totalScore = 0;
-        }
+        console.log("[QuizView] 🚀 Mission Initialized!", data);
+        questions = data.questions;
+        gameState = "WAITING";
+        startCountDown();
+    }
+
+    function startCountDown() {
+        countdown = 5;
+        const interval = setInterval(() => {
+            countdown--;
+            if (countdown <= 0) {
+                clearInterval(interval);
+                countdown = null;
+                if (!isHousemaster) {
+                    gameState = "QUIZ";
+                } else {
+                    startGame();
+                }
+            }
+        }, 1000);
     }
 
     function handleQuizResult(data) {
@@ -172,20 +190,8 @@
         });
     }
 
-    function startGame() {
-        gameState = "PLAYING";
-        strikes = 0;
-        asteroidsDestroyed = 0;
-        leaderboard = new Map();
-        asteroids = [];
-        lasers = [];
-
-        const questionCount = 4;
-        totalAsteroids = users.length * questionCount;
-        spawnQueue = totalAsteroids;
-        lastSpawnTime = Date.now();
-
-        // Start Quiz
+    function initiateMission() {
+        // Step 1: Tell server to start (which broadcasts to all, including host)
         websocket.startQuizMission(sessionId, [
             {
                 id: 1,
@@ -212,6 +218,41 @@
                 correctIndex: 2,
             },
         ]);
+        // handleMissionStarted will trigger the countdown
+    }
+
+    function startGame() {
+        gameState = "PLAYING";
+        strikes = 0;
+        asteroidsDestroyed = 0;
+        leaderboard = new Map();
+        asteroids = [];
+        lasers = [];
+        timeLeft = 60;
+
+        const questionCount = 10; // More potential asteroids
+        totalAsteroids = (users.length + 1) * questionCount;
+        spawnQueue = totalAsteroids;
+        lastSpawnTime = Date.now();
+
+        if (timerInterval) clearInterval(timerInterval);
+        timerInterval = setInterval(() => {
+            timeLeft--;
+            if (timeLeft <= 0) {
+                endGame();
+            }
+        }, 1000);
+    }
+
+    function endGame() {
+        if (isHousemaster) {
+            websocket.endQuizMission(sessionId);
+        }
+    }
+
+    function handleMissionEnded() {
+        clearInterval(timerInterval);
+        gameState = "VICTORY";
     }
 
     function submitAnswer(index) {
@@ -289,16 +330,18 @@
         if (spawnQueue <= 0) return;
         spawnQueue--;
 
+        const isHeavy = Math.random() > 0.7;
         const angle = Math.random() * Math.PI * 2;
         const r = Math.max(width, height) / 2 + 100;
         const x = width / 2 + Math.cos(angle) * r;
         const y = height / 2 + Math.sin(angle) * r;
 
         const vertices = [];
+        const baseRadius = isHeavy ? 45 : 25;
         const points = 5 + Math.floor(Math.random() * 4);
         for (let i = 0; i < points; i++) {
             const a = (Math.PI * 2 * i) / points;
-            const radiusVar = 20 + Math.random() * 15;
+            const radiusVar = baseRadius + Math.random() * (baseRadius * 0.6);
             vertices.push({
                 x: Math.cos(a) * radiusVar,
                 y: Math.sin(a) * radiusVar,
@@ -310,7 +353,9 @@
             y,
             vx: (spaceship.x - x) * 0.002,
             vy: (spaceship.y - y) * 0.002,
-            hp: 10,
+            hp: isHeavy ? 20 : 10,
+            maxHp: isHeavy ? 20 : 10,
+            isHeavy,
             vertices,
             rotation: Math.random() * Math.PI * 2,
             rotSpeed: (Math.random() - 0.5) * 0.05,
@@ -482,8 +527,32 @@
                 ctx.lineTo(v[i].x, v[i].y);
             }
             ctx.closePath();
-            ctx.fill();
+
+            if (a.isHeavy) {
+                ctx.fillStyle = "#64748b";
+                ctx.fill();
+                ctx.strokeStyle = "#94a3b8";
+            } else {
+                ctx.fill();
+                ctx.strokeStyle = "#cbd5e1";
+            }
+
             ctx.stroke();
+
+            // HP Bar for heavy asteroids
+            if (a.isHeavy && a.hp < a.maxHp) {
+                const barWidth = 40;
+                ctx.fillStyle = "rgba(0,0,0,0.5)";
+                ctx.fillRect(-barWidth / 2, -50, barWidth, 4);
+                ctx.fillStyle = "#ef4444";
+                ctx.fillRect(
+                    -barWidth / 2,
+                    -50,
+                    barWidth * (a.hp / a.maxHp),
+                    4,
+                );
+            }
+
             ctx.restore();
         }
 
@@ -556,11 +625,29 @@
 
                 <button
                     class="start-btn"
-                    on:click={startGame}
+                    on:click={initiateMission}
                     disabled={users.length === 0}
                 >
                     INITIATE MISSION
                 </button>
+            </div>
+        {/if}
+
+        {#if countdown !== null}
+            <div
+                class="countdown-overlay"
+                in:fade={{ duration: 400 }}
+                out:fade={{ duration: 400 }}
+            >
+                {#key countdown}
+                    <div
+                        class="countdown-number"
+                        in:scale={{ start: 4, duration: 900, opacity: 0 }}
+                        out:scale={{ start: 0.5, duration: 300, opacity: 0 }}
+                    >
+                        {countdown}
+                    </div>
+                {/key}
             </div>
         {/if}
 
@@ -569,13 +656,18 @@
         {#if gameState === "PLAYING"}
             <div class="hud">
                 <div class="panel left glass">
-                    <div class="label">STRIKES</div>
-                    <div class="value danger">{strikes}</div>
+                    <div class="label">TIME LEFT</div>
+                    <div class="value">{timeLeft}s</div>
+                </div>
+                <div class="panel center">
+                    <button class="end-now-btn" on:click={endGame}>
+                        FINISH MISSION
+                    </button>
                 </div>
                 <div class="panel right glass">
                     <div class="label">DESTROYED</div>
                     <div class="value success">
-                        {asteroidsDestroyed} / {totalAsteroids}
+                        {asteroidsDestroyed}
                     </div>
                 </div>
             </div>
@@ -602,7 +694,8 @@
                     {/each}
                 </div>
 
-                <button class="start-btn" on:click={startGame}>RE-ENGAGE</button
+                <button class="start-btn" on:click={initiateMission}
+                    >RE-ENGAGE</button
                 >
             </div>
         {/if}
@@ -610,6 +703,25 @@
 {:else}
     <!-- STUDENT VIEW -->
     <div class="quiz-container student">
+        {#if countdown !== null}
+            <div
+                class="countdown-overlay"
+                in:fade={{ duration: 400 }}
+                out:fade={{ duration: 400 }}
+            >
+                {#key countdown}
+                    <div
+                        class="countdown-number"
+                        in:scale={{ start: 4, duration: 900, opacity: 0 }}
+                        out:scale={{ start: 0.5, duration: 300, opacity: 0 }}
+                    >
+                        {countdown}
+                    </div>
+                {/key}
+                <div class="countdown-text">READY OPERATOR?</div>
+            </div>
+        {/if}
+
         <div class="hud">
             <div class="stat glass" class:hot={streak >= 3}>
                 <span class="label">STREAK</span>
@@ -823,6 +935,59 @@
     .start-btn:disabled {
         opacity: 0.2;
         cursor: not-allowed;
+    }
+
+    /* Countdown Styling */
+    .countdown-overlay {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: rgba(15, 23, 42, 0.8);
+        backdrop-filter: blur(10px);
+        z-index: 100;
+    }
+
+    .countdown-number {
+        font-size: 15rem;
+        font-weight: 900;
+        color: #4ecdc4;
+        text-shadow: 0 0 50px rgba(78, 205, 196, 0.5);
+    }
+
+    .countdown-text {
+        font-size: 1.5rem;
+        letter-spacing: 5px;
+        color: white;
+        margin-top: -2rem;
+        opacity: 0.5;
+    }
+
+    .end-now-btn {
+        background: rgba(239, 68, 68, 0.2);
+        color: #ef4444;
+        border: 1px solid rgba(239, 68, 68, 0.3);
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-size: 0.8rem;
+        pointer-events: auto;
+    }
+
+    .end-now-btn:hover {
+        background: #ef4444;
+        color: white;
+    }
+
+    .panel.center {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        pointer-events: auto;
     }
 
     .hud {
