@@ -130,13 +130,11 @@
 
     function handlePulseEvent(data) {
         if (isHousemaster) {
-            console.log("[QuizView] 📡 Pulse received from", data.fromName);
             handlePulse(data);
         }
     }
 
     function handleMissionStarted(data) {
-        console.log("[QuizView] 🚀 Mission Initialized!", data);
         questions = data.questions;
         gameState = "WAITING";
         startCountDown();
@@ -160,7 +158,6 @@
 
     function handleQuizResult(data) {
         if (!isHousemaster) {
-            console.log("[QuizView] 📊 Quiz Result:", data);
             const { streak: newStreak, totalScore: newTotal, correct } = data;
             streak = newStreak;
             totalScore = newTotal;
@@ -824,7 +821,7 @@
                 </div>
             </div>
         {:else if gameState === "QUIZ" || gameState === "SUBMITTING"}
-            <div class="quiz-area" in:fly={{ y: 50, duration: 400 }}>
+            <div class="quiz-area">
                 <div class="question-panel glass">
                     <div class="progress-bar">
                         <div

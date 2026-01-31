@@ -59,10 +59,8 @@ export function createWebSocket() {
     }
 
     ws.onmessage = (event) => {
-      console.log('📨 Received WebSocket message:', event.data);
       try {
         const message = JSON.parse(event.data)
-        console.log('📨 Parsed message:', message);
         handleMessage(message)
       } catch (error) {
         console.error('❌ Failed to parse message:', error)
@@ -74,7 +72,6 @@ export function createWebSocket() {
 
   function handleMessage(message) {
     const { type, data } = message
-    console.log('🔄 handleMessage: type =', type, 'data =', data);
 
     switch (type) {
       case 'joined':

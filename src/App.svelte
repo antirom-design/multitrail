@@ -349,8 +349,6 @@
 
       console.log("🔌 Subscribing to WebSocket state updates...");
       websocket.subscribe((state) => {
-        console.log("📡 WebSocket state update received:", state);
-
         if (state.connected && appState === STATES.IN_ROOM && !hasJoinedHouse) {
           console.log("📡 WebSocket connected! Joining house...");
           console.log("📡 Joining house:", roomCode, "as", user.displayName);
@@ -364,14 +362,12 @@
         }
 
         if (state.rooms && state.rooms.length > 0) {
-          console.log("📡 Received room list:", state.rooms);
           roomState = {
             ...roomState,
             users: state.rooms,
             sessionId: state.sessionId,
             isHousemaster: state.isHousemaster,
           };
-          console.log("✅ Room state updated:", roomState);
         }
       });
       console.log("✅ WebSocket subscription setup complete");
