@@ -49,11 +49,15 @@
     }
   }
 
+  // Reactive merged positions so Svelte re-renders on local movement
+  $: allPositions = (() => {
+    const merged = { ...playerPositions };
+    merged[sessionId] = { position: myPosition, direction: myDirection };
+    return merged;
+  })();
+
   function getPlayerPosition(playerId) {
-    if (playerId === sessionId) {
-      return { position: myPosition, direction: myDirection };
-    }
-    return playerPositions[playerId] || { position: 50, direction: 1 };
+    return allPositions[playerId] || { position: 50, direction: 1 };
   }
 
   // Consistent color: use index in the users array (same order for everyone)
@@ -93,7 +97,7 @@
           </div>
         {:else}
           {#each users as player, index (player.id)}
-            {@const pos = getPlayerPosition(player.id)}
+            {@const pos = allPositions[player.id] || { position: 50, direction: 1 }}
             {@const isMe = player.id === sessionId}
             <div
               class="arena-character"
