@@ -19,8 +19,7 @@
   function handlePlayerMove(e) {
     const { sessionId: senderId, position, direction } = e.detail;
     if (senderId !== sessionId) {
-      playerPositions[senderId] = { position, direction };
-      playerPositions = playerPositions;
+      playerPositions = { ...playerPositions, [senderId]: { position, direction } };
     }
   }
 
