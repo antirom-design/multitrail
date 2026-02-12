@@ -122,6 +122,8 @@
   $: if (roomCode) sessionStorage.setItem("multitrail_room_code", roomCode);
   $: if (roomMode) sessionStorage.setItem("multitrail_room_mode", roomMode);
   $: if (sessionId) sessionStorage.setItem("multitrail_session_id", sessionId);
+  $: if (settings.color && settings.color !== "#ffffff")
+    sessionStorage.setItem("multitrail_color", settings.color);
   $: if (user && user.displayName)
     localStorage.setItem("multitrail_last_name", user.displayName);
 
@@ -340,8 +342,8 @@
     console.log("📝 TafelManager created");
 
     try {
-      console.log("🔌 Creating WebSocket...");
-      websocket = createWebSocket();
+      console.log("🔌 Creating WebSocket with sessionId:", sessionId);
+      websocket = createWebSocket(sessionId);
       console.log("✅ WebSocket object created:", websocket);
 
       console.log("🔌 Connecting to", BACKEND_URL);

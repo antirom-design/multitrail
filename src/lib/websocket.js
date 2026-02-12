@@ -5,7 +5,7 @@
 
 import { writable } from 'svelte/store'
 
-export function createWebSocket() {
+export function createWebSocket(existingSessionId = null) {
   const { subscribe, set, update } = writable({
     connected: false,
     sessionId: null,
@@ -17,7 +17,7 @@ export function createWebSocket() {
 
   let ws = null
   let reconnectTimeout = null
-  let sessionId = generateSessionId()
+  let sessionId = existingSessionId || generateSessionId()
   let messageHandlers = new Map()
 
   function connect(wsUrl) {
