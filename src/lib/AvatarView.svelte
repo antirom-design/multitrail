@@ -1,6 +1,5 @@
 <script>
-  import { onMount, onDestroy } from 'svelte';
-  import IdleCharacter from './IdleCharacter.svelte';
+  import { onMount } from 'svelte';
 
   export let websocket = null;
   export let isHousemaster = false;
@@ -32,12 +31,19 @@
     };
   });
 
-  function handleMove(event) {
-    const { direction } = event.detail;
-    myDirection = direction;
-    myPosition = Math.max(10, Math.min(90, myPosition + direction * 8));
+  function moveLeft() {
+    myDirection = -1;
+    myPosition = Math.max(5, myPosition - 8);
+    broadcastMove();
+  }
 
-    // Broadcast to others
+  function moveRight() {
+    myDirection = 1;
+    myPosition = Math.min(95, myPosition + 8);
+    broadcastMove();
+  }
+
+  function broadcastMove() {
     if (websocket) {
       websocket.sendPlayerMove(myPosition, myDirection);
     }
@@ -50,7 +56,7 @@
     return playerPositions[playerId] || { position: 50, direction: 1 };
   }
 
-  // Use the same palette as App.svelte
+  // Consistent color: use index in the users array (same order for everyone)
   const COLOR_PALETTE = [
     '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F',
     '#BB8FCE', '#85C1E2', '#F8B739', '#52C77A', '#FF85A1', '#95E1D3'
@@ -67,9 +73,8 @@
 </script>
 
 <div class="avatar-view">
-  {#if isHousemaster}
-    <!-- HOST VIEW: Arena + QR code -->
-    <div class="host-layout">
+  <div class="layout">
+    {#if isHousemaster}
       <div class="qr-section">
         <div class="qr-container">
           <img src={qrCodeUrl} alt="QR Code" class="qr-code" />
@@ -77,76 +82,45 @@
         <div class="room-code-display">{roomCode}</div>
         <p class="hint">Scan to join</p>
       </div>
+    {/if}
 
-      <div class="arena-section">
-        <h3 class="arena-label">Players ({users.length})</h3>
-        <div class="players-arena">
-          {#if users.length === 0}
-            <div class="empty-arena">
-              <p>Waiting for players...</p>
-            </div>
-          {:else}
-            {#each users as player, index (player.id)}
-              {@const pos = getPlayerPosition(player.id)}
-              <div
-                class="arena-character"
-                class:facing-left={pos.direction < 0}
-                style="left: {pos.position}%; --char-color: {getPlayerColor(index)};"
-              >
-                <div class="pixel-char">
-                  <div class="head"></div>
-                  <div class="body"></div>
-                  <div class="legs"></div>
-                </div>
-                <div class="name-tag">{player.name}</div>
-              </div>
-            {/each}
-          {/if}
-          <div class="ground"></div>
-        </div>
-      </div>
-    </div>
-  {:else}
-    <!-- STUDENT VIEW: My character + arena -->
-    <div class="student-layout">
-      <div class="my-character-section">
-        <IdleCharacter
-          playerName={userName}
-          position={myPosition}
-          direction={myDirection}
-          color={userColor}
-          isLocal={true}
-          on:move={handleMove}
-        />
-      </div>
-
-      {#if users.length > 1}
-        <div class="others-section">
-          <p class="others-label">Others ({users.length - 1})</p>
-          <div class="others-grid">
-            {#each users.filter(p => p.id !== sessionId) as player, index (player.id)}
-              {@const pos = getPlayerPosition(player.id)}
-              <div class="player-card">
-                <div class="mini-character-area">
-                  <div
-                    class="mini-character"
-                    class:facing-left={pos.direction < 0}
-                    style="left: {pos.position}%; --char-color: {getPlayerColor(index)};"
-                  >
-                    <div class="mini-pixel">
-                      <div class="mini-head"></div>
-                      <div class="mini-body"></div>
-                    </div>
-                  </div>
-                </div>
-                <span class="player-name">{player.name}</span>
-              </div>
-            {/each}
+    <div class="arena-section">
+      <h3 class="arena-label">Players ({users.length})</h3>
+      <div class="players-arena">
+        {#if users.length === 0}
+          <div class="empty-arena">
+            <p>Waiting for players...</p>
           </div>
+        {:else}
+          {#each users as player, index (player.id)}
+            {@const pos = getPlayerPosition(player.id)}
+            {@const isMe = player.id === sessionId}
+            <div
+              class="arena-character"
+              class:facing-left={pos.direction < 0}
+              class:is-me={isMe}
+              style="left: {pos.position}%; --char-color: {getPlayerColor(index)};"
+            >
+              <div class="pixel-char">
+                <div class="head"></div>
+                <div class="body"></div>
+                <div class="legs"></div>
+              </div>
+              <div class="name-tag" class:me={isMe}>{player.name}</div>
+            </div>
+          {/each}
+        {/if}
+        <div class="ground"></div>
+      </div>
+
+      {#if !isHousemaster}
+        <div class="controls">
+          <button class="arrow-btn" on:click={moveLeft}>◀</button>
+          <button class="arrow-btn" on:click={moveRight}>▶</button>
         </div>
       {/if}
     </div>
-  {/if}
+  </div>
 </div>
 
 <style>
@@ -161,8 +135,7 @@
     overflow-y: auto;
   }
 
-  /* === HOST LAYOUT === */
-  .host-layout {
+  .layout {
     width: 100%;
     height: 100%;
     display: flex;
@@ -173,12 +146,13 @@
   }
 
   @media (min-width: 768px) {
-    .host-layout {
+    .layout {
       flex-direction: row;
       gap: 60px;
     }
   }
 
+  /* === QR SECTION (host only) === */
   .qr-section {
     text-align: center;
   }
@@ -211,9 +185,10 @@
     color: rgba(255, 255, 255, 0.5);
   }
 
+  /* === ARENA (shared by all) === */
   .arena-section {
     min-width: 350px;
-    max-width: 500px;
+    max-width: 600px;
     width: 100%;
   }
 
@@ -226,7 +201,7 @@
 
   .players-arena {
     position: relative;
-    height: 200px;
+    height: 220px;
     background: linear-gradient(180deg, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.4) 100%);
     border-radius: 16px;
     overflow: hidden;
@@ -339,102 +314,42 @@
     border-radius: 6px;
   }
 
-  /* === STUDENT LAYOUT === */
-  .student-layout {
-    width: 100%;
-    max-width: 400px;
-    display: flex;
-    flex-direction: column;
-    gap: 24px;
+  .name-tag.me {
+    background: rgba(102, 126, 234, 0.8);
   }
 
-  .my-character-section {
-    background: rgba(255, 255, 255, 0.05);
+  .arena-character.is-me .pixel-char {
+    filter: drop-shadow(0 0 6px rgba(102, 126, 234, 0.5));
+  }
+
+  /* === CONTROLS (students only) === */
+  .controls {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    margin-top: 16px;
+  }
+
+  .arrow-btn {
+    width: 70px;
+    height: 70px;
+    border: 2px solid rgba(255,255,255,0.2);
     border-radius: 16px;
-    padding: 16px;
-  }
-
-  .others-section {
-    background: rgba(255, 255, 255, 0.03);
-    border-radius: 12px;
-    padding: 12px;
-  }
-
-  .others-label {
-    font-size: 0.8rem;
-    color: rgba(255, 255, 255, 0.5);
-    margin: 0 0 12px 0;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-  }
-
-  .others-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 8px;
-  }
-
-  .player-card {
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 8px;
-    padding: 8px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-  }
-
-  .mini-character-area {
-    position: relative;
-    width: 100%;
-    height: 30px;
-    overflow: hidden;
-  }
-
-  .mini-character {
-    position: absolute;
-    bottom: 2px;
-    transform: translateX(-50%);
-    transition: left 0.15s ease-out;
-  }
-
-  .mini-character.facing-left {
-    transform: translateX(-50%) scaleX(-1);
-  }
-
-  .mini-pixel {
-    width: 12px;
-    height: 18px;
-    position: relative;
-  }
-
-  .mini-head {
-    width: 8px;
-    height: 8px;
-    background: #ffd8b1;
-    border-radius: 2px;
-    position: absolute;
-    top: 0;
-    left: 2px;
-  }
-
-  .mini-body {
-    width: 10px;
-    height: 8px;
-    background: var(--char-color);
-    position: absolute;
-    top: 7px;
-    left: 1px;
-    border-radius: 1px;
-  }
-
-  .player-name {
-    font-size: 0.75rem;
+    background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05));
     color: white;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 100%;
+    font-size: 2rem;
+    cursor: pointer;
+    transition: all 0.1s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .arrow-btn:active {
+    transform: scale(0.95);
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.4), rgba(102, 126, 234, 0.2));
   }
 
   @media (max-width: 600px) {
