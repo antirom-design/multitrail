@@ -9,6 +9,7 @@
   import TopBar from "./lib/TopBar.svelte";
   import TafelToolbar from "./lib/TafelToolbar.svelte";
   import QuizView from "./lib/QuizView.svelte";
+  import AvatarView from "./lib/AvatarView.svelte";
   import { createWebSocket } from "./lib/websocket.js";
   import { TafelManager } from "./lib/tafelManager.js";
 
@@ -602,7 +603,18 @@
       on:changeName={handleChangeName}
     />
   {:else if appState === STATES.IN_ROOM}
-    {#if roomMode === "quiz"}
+    {#if roomMode === "avatar"}
+      <!-- Avatar Mode -->
+      <AvatarView
+        {websocket}
+        isHousemaster={roomState.isHousemaster}
+        sessionId={roomState.sessionId}
+        userName={user?.displayName}
+        userColor={settings.color}
+        {roomCode}
+        users={roomState.users}
+      />
+    {:else if roomMode === "quiz"}
       <!-- Quiz Mode -->
       <QuizView
         {websocket}

@@ -166,6 +166,10 @@ export function createWebSocket() {
         window.dispatchEvent(new CustomEvent('userColorChange', { detail: data }))
         break
 
+      case 'playerMove':
+        window.dispatchEvent(new CustomEvent('playerMove', { detail: data }))
+        break
+
       // Quiz-specific events
       case 'quizMissionStarted':
         console.log('🎮 Dispatching quizMissionStarted event:', data);
@@ -303,6 +307,11 @@ export function createWebSocket() {
     send('userColorChange', { color })
   }
 
+  // Avatar mode methods
+  function sendPlayerMove(position, direction) {
+    send('playerMove', { position, direction })
+  }
+
   // Quiz mode methods
   function startQuizMission(sessionId, questions) {
     console.log('🎮 startQuizMission() called with', questions.length, 'questions');
@@ -366,6 +375,7 @@ export function createWebSocket() {
     sendTafelClear,
     sendTafelClearMine,
     sendUserColorChange,
+    sendPlayerMove,
     startQuizMission,
     submitQuizAnswer,
     endQuizMission,
