@@ -741,13 +741,8 @@
       <OnlineIndicator
         userCount={roomState.users.length}
         on:click={toggleUserList}
+        on:avatarClick={() => showAvatarModal = true}
       />
-      <button class="avatar-btn" on:click={() => showAvatarModal = true} aria-label="Customize avatar">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
-          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-          <circle cx="12" cy="7" r="4" />
-        </svg>
-      </button>
     {/if}
 
     <AvatarCustomizeModal
@@ -775,45 +770,5 @@
     width: 100%;
     height: 100%;
     display: block;
-  }
-
-  .avatar-btn {
-    position: fixed;
-    top: 20px;
-    left: 88px;
-    background: rgba(0, 0, 0, 0.8);
-    backdrop-filter: blur(10px);
-    border: none;
-    border-radius: 50%;
-    width: 40px;
-    height: 40px;
-    color: rgba(255, 255, 255, 0.7);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    z-index: 100;
-  }
-
-  .avatar-btn:hover {
-    background: rgba(0, 0, 0, 0.9);
-    color: white;
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
-  }
-
-  .avatar-btn:active {
-    transform: translateY(0);
-  }
-
-  @media (max-width: 600px) {
-    .avatar-btn {
-      top: 10px;
-      left: 75px;
-      width: 36px;
-      height: 36px;
-    }
   }
 </style>
