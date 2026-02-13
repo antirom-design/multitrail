@@ -324,6 +324,15 @@ export function createWebSocket(existingSessionId = null) {
     send('setDrawPermission', { all: true, canDraw })
   }
 
+  // Host view permission methods
+  function sendSetHostView(targetSessionId, hasHostView) {
+    send('setHostView', { targetSessionId, hasHostView })
+  }
+
+  function sendSetHostViewAll(hasHostView) {
+    send('setHostView', { all: true, hasHostView })
+  }
+
   // Avatar mode methods
   function sendPlayerMove(position, direction) {
     send('playerMove', { position, direction })
@@ -402,6 +411,8 @@ export function createWebSocket(existingSessionId = null) {
     sendUserColorChange,
     sendSetDrawPermission,
     sendSetDrawPermissionAll,
+    sendSetHostView,
+    sendSetHostViewAll,
     sendPlayerMove,
     sendPlayerJump,
     sendPlayerCustomize,

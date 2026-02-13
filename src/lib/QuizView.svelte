@@ -5,6 +5,7 @@
 
     export let websocket;
     export let isHousemaster;
+    export let hasHostView = false;
     export let sessionId;
     export let userName;
 
@@ -15,7 +16,7 @@
     let width, height;
 
     // Game State
-    let gameState = isHousemaster ? "LOBBY" : "WAITING"; // LOBBY/WAITING, PLAYING/QUIZ, VICTORY/FINISHED
+    let gameState = (isHousemaster || hasHostView) ? "LOBBY" : "WAITING"; // LOBBY/WAITING, PLAYING/QUIZ, VICTORY/FINISHED
     let users = [];
     let strikes = 0;
     let asteroidsDestroyed = 0;
@@ -150,10 +151,12 @@
             if (countdown <= 0) {
                 clearInterval(interval);
                 countdown = null;
-                if (!isHousemaster) {
-                    gameState = "QUIZ";
-                } else {
+                if (isHousemaster) {
                     startGame();
+                } else if (hasHostView) {
+                    gameState = "PLAYING";
+                } else {
+                    gameState = "QUIZ";
                 }
             }
         }, 1000);
@@ -309,7 +312,7 @@
     function handleMissionEnded() {
         console.log("[QuizView] 🏁 Mission Ended (Sync)");
         clearInterval(timerInterval);
-        gameState = isHousemaster ? "VICTORY" : "FINISHED";
+        gameState = (isHousemaster || hasHostView) ? "VICTORY" : "FINISHED";
     }
 
     function submitAnswer(index) {
@@ -659,7 +662,7 @@
     }
 </script>
 
-{#if isHousemaster}
+{#if isHousemaster || hasHostView}
     <!-- HOST VIEW -->
     <div class="quiz-container">
         {#if gameState === "LOBBY"}
@@ -696,6 +699,7 @@
                     {/each}
                 </div>
 
+                {#if isHousemaster}
                 <button
                     class="start-btn"
                     on:click={initiateMission}
@@ -703,6 +707,7 @@
                 >
                     INITIATE MISSION
                 </button>
+                {/if}
             </div>
         {/if}
 
@@ -732,11 +737,13 @@
                     <div class="label">TIME LEFT</div>
                     <div class="value">{timeLeft}s</div>
                 </div>
+                {#if isHousemaster}
                 <div class="panel center">
                     <button class="end-now-btn" on:click={endGame}>
                         FINISH MISSION
                     </button>
                 </div>
+                {/if}
                 <div class="panel right glass">
                     <div class="label">DESTROYED</div>
                     <div class="value success">
@@ -745,6 +752,7 @@
                 </div>
             </div>
 
+            {#if isHousemaster}
             <!-- Host Action Panel -->
             <div class="actions-panel glass">
                 <button
@@ -804,6 +812,7 @@
                     {/if}
                 </button>
             </div>
+            {/if}
         {/if}
 
         {#if gameState === "VICTORY"}
@@ -840,9 +849,11 @@
                     {/each}
                 </div>
 
+                {#if isHousemaster}
                 <button class="start-btn" on:click={initiateMission}
                     >RE-ENGAGE</button
                 >
+                {/if}
             </div>
         {/if}
     </div>

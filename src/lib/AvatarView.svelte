@@ -3,6 +3,7 @@
 
   export let websocket = null;
   export let isHousemaster = false;
+  export let hasHostView = false;
   export let sessionId = '';
   export let userName = '';
   export let userColor = '#667eea';
@@ -235,7 +236,7 @@
 
 <div class="avatar-view">
   <div class="layout">
-    {#if isHousemaster}
+    {#if isHousemaster || hasHostView}
       <div class="qr-section">
         <div class="qr-container">
           <img src={qrCodeUrl} alt="QR Code" class="qr-code" />
@@ -287,7 +288,7 @@
         <div class="ground"></div>
       </div>
 
-      {#if !isHousemaster}
+      {#if !isHousemaster && !hasHostView}
         <div class="controls">
           <button class="arrow-btn" on:click={moveLeft}>◀</button>
           <button class="arrow-btn jump-btn" on:click={jump}>⬆</button>

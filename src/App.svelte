@@ -613,11 +613,33 @@
     }
   }
 
+  // Host view permission handlers
+  function handleToggleHostViewUser(event) {
+    const { userId, hasHostView } = event.detail;
+    if (websocket) {
+      websocket.sendSetHostView(userId, hasHostView);
+    }
+  }
+
+  function handleToggleHostViewAll(event) {
+    const { hasHostView } = event.detail;
+    if (websocket) {
+      websocket.sendSetHostViewAll(hasHostView);
+    }
+  }
+
   // Determine if current user can draw
   $: currentUserCanDraw = (() => {
     if (roomState.isHousemaster) return true;
     const me = roomState.users.find((u) => u.id === roomState.sessionId);
     return me ? me.canDraw !== false : true;
+  })();
+
+  // Determine if current user has host view
+  $: currentUserHasHostView = (() => {
+    if (roomState.isHousemaster) return false;
+    const me = roomState.users.find((u) => u.id === roomState.sessionId);
+    return me ? me.hasHostView === true : false;
   })();
 </script>
 
@@ -643,6 +665,7 @@
       <AvatarView
         {websocket}
         isHousemaster={roomState.isHousemaster}
+        hasHostView={currentUserHasHostView}
         sessionId={roomState.sessionId}
         userName={user?.displayName}
         userColor={settings.color}
@@ -654,6 +677,7 @@
       <QuizView
         {websocket}
         isHousemaster={roomState.isHousemaster}
+        hasHostView={currentUserHasHostView}
         sessionId={roomState.sessionId}
         userName={user?.displayName}
       />
@@ -687,6 +711,7 @@
       {roomCode}
       {roomMode}
       isHousemaster={roomState.isHousemaster}
+      hasHostView={currentUserHasHostView}
       bind:settings
       bind:showQRCode={showShareModal}
       on:modeChange={handleModeChange}
@@ -709,6 +734,8 @@
       on:close={closeUserList}
       on:toggleDrawUser={handleToggleDrawUser}
       on:toggleDrawAll={handleToggleDrawAll}
+      on:toggleHostViewUser={handleToggleHostViewUser}
+      on:toggleHostViewAll={handleToggleHostViewAll}
     />
   {/if}
 </main>

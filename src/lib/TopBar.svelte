@@ -5,6 +5,7 @@
   export let roomCode = "";
   export let roomMode = "trail";
   export let isHousemaster = false;
+  export let hasHostView = false;
   export let settings = {};
   export let showQRCode = false;
 
@@ -96,7 +97,7 @@
 <div class="top-bar">
   <!-- Room code and share -->
   <div class="room-section">
-    {#if isHousemaster || roomMode !== "quiz"}
+    {#if isHousemaster || hasHostView || roomMode !== "quiz"}
       <span class="code" on:click={copyCode} role="button" tabindex="0"
         >{roomCode}</span
       >
