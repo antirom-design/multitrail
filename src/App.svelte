@@ -71,6 +71,7 @@
   };
 
   let sessionId = null;
+  let initialized = false; // Guard: don't persist to localStorage until onMount is done
   let hasJoinedHouse = false; // Track if we've joined to prevent infinite loop
   let showUserList = false; // Toggle for user list overlay
   let autoJoinRoomCode = null; // Room code from QR scan
@@ -118,11 +119,11 @@
   }
 
   // Persistence logic
-  $: if (appState) localStorage.setItem("multitrail_app_state", appState);
-  $: if (roomCode) localStorage.setItem("multitrail_room_code", roomCode);
-  $: if (roomMode) localStorage.setItem("multitrail_room_mode", roomMode);
-  $: if (sessionId) localStorage.setItem("multitrail_session_id", sessionId);
-  $: if (settings.color && settings.color !== "#ffffff")
+  $: if (initialized && appState) localStorage.setItem("multitrail_app_state", appState);
+  $: if (initialized && roomCode) localStorage.setItem("multitrail_room_code", roomCode);
+  $: if (initialized && roomMode) localStorage.setItem("multitrail_room_mode", roomMode);
+  $: if (initialized && sessionId) localStorage.setItem("multitrail_session_id", sessionId);
+  $: if (initialized && settings.color && settings.color !== "#ffffff")
     localStorage.setItem("multitrail_color", settings.color);
   $: if (user && user.displayName)
     localStorage.setItem("multitrail_last_name", user.displayName);
@@ -172,6 +173,9 @@
         appState = STATES.IN_ROOM;
       }
     }
+
+    // Now allow reactive statements to persist to localStorage
+    initialized = true;
   });
 
   function handleTestsPass() {
