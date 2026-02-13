@@ -62,12 +62,17 @@
   };
 
   let playerCustomizations = {};
-  let showCustomizeModal = false;
 
-  function setCustomization(key, value) {
-    myCustomization = { ...myCustomization, [key]: value };
-    localStorage.setItem('multitrail_avatar', JSON.stringify(myCustomization));
-    broadcastCustomization();
+  // Re-read customization from localStorage (in case changed externally via modal)
+  export function reloadCustomization() {
+    const s = JSON.parse(localStorage.getItem('multitrail_avatar') || '{}');
+    myCustomization = {
+      hair: s.hair || 0,
+      skin: s.skin || 0,
+      eyes: s.eyes || 0,
+      shirt: s.shirt || 0,
+      pants: s.pants || 0,
+    };
   }
 
   function broadcastCustomization() {
@@ -91,13 +96,6 @@
     prevUserCount = users.length;
     if (users.length > 0) setTimeout(broadcastCustomization, 500);
   }
-
-  // Resolved preview values for modal
-  $: previewHair = HAIR_PRESETS[myCustomization.hair] || HAIR_PRESETS[0];
-  $: previewSkin = SKIN_COLORS[myCustomization.skin] || SKIN_COLORS[0];
-  $: previewEye = EYE_PRESETS[myCustomization.eyes] || EYE_PRESETS[0];
-  $: previewShirt = SHIRT_COLORS[myCustomization.shirt] || (myUserIndex >= 0 ? getPlayerColor(myUserIndex) : '#667eea');
-  $: previewPants = PANTS_COLORS[myCustomization.pants] || PANTS_COLORS[0];
 
   // === Event handlers ===
   function handlePlayerMove(e) {
@@ -296,89 +294,9 @@
         </div>
       {/if}
 
-      <button class="customize-btn" on:click={() => showCustomizeModal = true}>MyAvatar</button>
     </div>
   </div>
 </div>
-
-{#if showCustomizeModal}
-<div class="customize-overlay" on:click={() => showCustomizeModal = false}>
-  <div class="customize-modal" on:click|stopPropagation>
-    <div class="preview-area">
-      <div class="arena-character preview-char" style="--char-color: {previewShirt}; --skin-color: {previewSkin}; --eye-w: {previewEye.w}px; --eye-h: {previewEye.h}px; --eye-r: {previewEye.r}; --eye-color: {previewEye.color}; --pants-color: {previewPants};">
-        <div class="pixel-char">
-          {#if previewHair.style !== 'none'}
-            <div class="hair hair-{previewHair.style}" style="background: {previewHair.color}"></div>
-          {/if}
-          <div class="head"></div>
-          <div class="body"></div>
-          <div class="legs"></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="option-group">
-      <span class="option-label">Haare</span>
-      <div class="option-row">
-        {#each HAIR_PRESETS as hp, i}
-          <button class="swatch" class:selected={myCustomization.hair === i} on:click={() => setCustomization('hair', i)}>
-            {#if hp.style === 'none'}
-              <span class="swatch-text">-</span>
-            {:else}
-              <span class="hair-sw hair-sw-{hp.style}" style="background: {hp.color}"></span>
-            {/if}
-          </button>
-        {/each}
-      </div>
-    </div>
-
-    <div class="option-group">
-      <span class="option-label">Haut</span>
-      <div class="option-row">
-        {#each SKIN_COLORS as color, i}
-          <button class="swatch color-sw" class:selected={myCustomization.skin === i} style="--sw-color: {color}" on:click={() => setCustomization('skin', i)}></button>
-        {/each}
-      </div>
-    </div>
-
-    <div class="option-group">
-      <span class="option-label">Augen</span>
-      <div class="option-row">
-        {#each EYE_PRESETS as ep, i}
-          <button class="swatch eye-sw" class:selected={myCustomization.eyes === i} on:click={() => setCustomization('eyes', i)}>
-            <span class="eye-pair">
-              <span class="eye-dot" style="width: {ep.w}px; height: {ep.h}px; background: {ep.color}; border-radius: {ep.r};"></span>
-              <span class="eye-dot" style="width: {ep.w}px; height: {ep.h}px; background: {ep.color}; border-radius: {ep.r};"></span>
-            </span>
-          </button>
-        {/each}
-      </div>
-    </div>
-
-    <div class="option-group">
-      <span class="option-label">Pulli</span>
-      <div class="option-row">
-        {#each SHIRT_COLORS as color, i}
-          <button class="swatch color-sw" class:selected={myCustomization.shirt === i} style="--sw-color: {color || (myUserIndex >= 0 ? getPlayerColor(myUserIndex) : '#667eea')}" on:click={() => setCustomization('shirt', i)}>
-            {#if !color}<span class="swatch-text">A</span>{/if}
-          </button>
-        {/each}
-      </div>
-    </div>
-
-    <div class="option-group">
-      <span class="option-label">Hose</span>
-      <div class="option-row">
-        {#each PANTS_COLORS as color, i}
-          <button class="swatch color-sw" class:selected={myCustomization.pants === i} style="--sw-color: {color}" on:click={() => setCustomization('pants', i)}></button>
-        {/each}
-      </div>
-    </div>
-
-    <button class="done-btn" on:click={() => showCustomizeModal = false}>Fertig</button>
-  </div>
-</div>
-{/if}
 
 <style>
   .avatar-view {
@@ -663,164 +581,6 @@
     0% { opacity: 1; transform: translateX(-50%) translateY(0) scale(0.5); }
     50% { opacity: 1; transform: translateX(-50%) translateY(-20px) scale(1.2); }
     100% { opacity: 0; transform: translateX(-50%) translateY(-35px) scale(0.8); }
-  }
-
-  /* === CUSTOMIZE BUTTON === */
-  .customize-btn {
-    display: block;
-    margin: 12px auto 0;
-    padding: 8px 20px;
-    border: 1px solid rgba(255,255,255,0.2);
-    border-radius: 10px;
-    background: rgba(255,255,255,0.08);
-    color: rgba(255,255,255,0.7);
-    font-size: 0.85rem;
-    cursor: pointer;
-    transition: all 0.15s ease;
-  }
-
-  .customize-btn:hover {
-    background: rgba(255,255,255,0.15);
-    color: white;
-  }
-
-  /* === CUSTOMIZE MODAL === */
-  .customize-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.7);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-    padding: 20px;
-  }
-
-  .customize-modal {
-    background: #1e1e3a;
-    border-radius: 20px;
-    padding: 24px;
-    max-width: 340px;
-    width: 100%;
-    max-height: 85vh;
-    overflow-y: auto;
-    border: 1px solid rgba(255,255,255,0.1);
-  }
-
-  .preview-area {
-    display: flex;
-    justify-content: center;
-    padding: 10px 0 8px;
-    min-height: 180px;
-    align-items: center;
-  }
-
-  .preview-char {
-    position: static !important;
-    transform: scale(3) !important;
-    transform-origin: center center;
-    bottom: auto !important;
-  }
-
-  .option-group {
-    margin-bottom: 14px;
-  }
-
-  .option-label {
-    display: block;
-    font-size: 0.7rem;
-    color: rgba(255,255,255,0.45);
-    margin-bottom: 6px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-  }
-
-  .option-row {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
-
-  .swatch {
-    width: 36px;
-    height: 36px;
-    border-radius: 10px;
-    border: 2px solid rgba(255,255,255,0.1);
-    background: rgba(255,255,255,0.05);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.1s ease;
-    padding: 0;
-  }
-
-  .swatch:hover {
-    border-color: rgba(255,255,255,0.3);
-  }
-
-  .swatch.selected {
-    border-color: #667eea;
-    box-shadow: 0 0 8px rgba(102, 126, 234, 0.4);
-  }
-
-  .color-sw {
-    background: var(--sw-color) !important;
-  }
-
-  .swatch-text {
-    color: rgba(255,255,255,0.6);
-    font-size: 0.8rem;
-    font-weight: 600;
-  }
-
-  .hair-sw {
-    display: block;
-    border-radius: 2px;
-  }
-
-  .hair-sw-short {
-    width: 18px;
-    height: 6px;
-    border-radius: 3px 3px 0 0;
-  }
-
-  .hair-sw-long {
-    width: 20px;
-    height: 10px;
-    border-radius: 3px 3px 2px 2px;
-  }
-
-  .eye-sw {
-    background: rgba(255,255,255,0.1) !important;
-  }
-
-  .eye-pair {
-    display: flex;
-    gap: 3px;
-    align-items: center;
-  }
-
-  .eye-dot {
-    display: block;
-  }
-
-  .done-btn {
-    width: 100%;
-    margin-top: 18px;
-    padding: 12px;
-    border: none;
-    border-radius: 12px;
-    background: #667eea;
-    color: white;
-    font-size: 1rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.15s;
-  }
-
-  .done-btn:hover {
-    background: #5a6fd6;
   }
 
   @media (max-width: 600px) {

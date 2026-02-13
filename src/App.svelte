@@ -10,6 +10,7 @@
   import TafelToolbar from "./lib/TafelToolbar.svelte";
   import QuizView from "./lib/QuizView.svelte";
   import AvatarView from "./lib/AvatarView.svelte";
+  import AvatarCustomizeModal from "./lib/AvatarCustomizeModal.svelte";
   import { createWebSocket } from "./lib/websocket.js";
   import { TafelManager } from "./lib/tafelManager.js";
 
@@ -74,6 +75,8 @@
   let initialized = false; // Guard: don't persist to localStorage until onMount is done
   let hasJoinedHouse = false; // Track if we've joined to prevent infinite loop
   let showUserList = false; // Toggle for user list overlay
+  let showAvatarModal = false; // Toggle for avatar customization modal
+  let avatarViewRef = null; // Reference to AvatarView for reloading customization
   let autoJoinRoomCode = null; // Room code from QR scan
   let showShareModal = false; // Show share modal after room creation
 
@@ -628,6 +631,20 @@
     }
   }
 
+  // Avatar customization handler
+  function handleAvatarCustomizationChange(event) {
+    const customization = event.detail;
+    if (websocket) {
+      websocket.sendPlayerCustomize(customization);
+    }
+    // Reload customization in AvatarView if mounted
+    if (avatarViewRef && avatarViewRef.reloadCustomization) {
+      avatarViewRef.reloadCustomization();
+    }
+  }
+
+  $: myUserIndex = roomState.users.findIndex((u) => u.id === roomState.sessionId);
+
   // Determine if current user can draw
   $: currentUserCanDraw = (() => {
     if (roomState.isHousemaster) return true;
@@ -663,6 +680,7 @@
     {#if roomMode === "avatar"}
       <!-- Avatar Mode -->
       <AvatarView
+        bind:this={avatarViewRef}
         {websocket}
         isHousemaster={roomState.isHousemaster}
         hasHostView={currentUserHasHostView}
@@ -724,7 +742,19 @@
         userCount={roomState.users.length}
         on:click={toggleUserList}
       />
+      <button class="avatar-btn" on:click={() => showAvatarModal = true} aria-label="Customize avatar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+          <circle cx="12" cy="7" r="4" />
+        </svg>
+      </button>
     {/if}
+
+    <AvatarCustomizeModal
+      bind:show={showAvatarModal}
+      userIndex={myUserIndex}
+      on:change={handleAvatarCustomizationChange}
+    />
 
     <UserList
       users={roomState.users}
@@ -745,5 +775,45 @@
     width: 100%;
     height: 100%;
     display: block;
+  }
+
+  .avatar-btn {
+    position: fixed;
+    top: 20px;
+    left: 88px;
+    background: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(10px);
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    color: rgba(255, 255, 255, 0.7);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    z-index: 100;
+  }
+
+  .avatar-btn:hover {
+    background: rgba(0, 0, 0, 0.9);
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+  }
+
+  .avatar-btn:active {
+    transform: translateY(0);
+  }
+
+  @media (max-width: 600px) {
+    .avatar-btn {
+      top: 10px;
+      left: 75px;
+      width: 36px;
+      height: 36px;
+    }
   }
 </style>
