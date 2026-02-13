@@ -170,6 +170,10 @@ export function createWebSocket(existingSessionId = null) {
         window.dispatchEvent(new CustomEvent('playerMove', { detail: data }))
         break
 
+      case 'playerJump':
+        window.dispatchEvent(new CustomEvent('playerJump', { detail: data }))
+        break
+
       // Quiz-specific events
       case 'quizMissionStarted':
         console.log('🎮 Dispatching quizMissionStarted event:', data);
@@ -321,6 +325,10 @@ export function createWebSocket(existingSessionId = null) {
     send('playerMove', { position, direction })
   }
 
+  function sendPlayerJump() {
+    send('playerJump', {})
+  }
+
   // Quiz mode methods
   function startQuizMission(sessionId, questions) {
     console.log('🎮 startQuizMission() called with', questions.length, 'questions');
@@ -387,6 +395,7 @@ export function createWebSocket(existingSessionId = null) {
     sendSetDrawPermission,
     sendSetDrawPermissionAll,
     sendPlayerMove,
+    sendPlayerJump,
     startQuizMission,
     submitQuizAnswer,
     endQuizMission,

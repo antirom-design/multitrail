@@ -16,6 +16,18 @@
   // All player positions (keyed by sessionId)
   let playerPositions = {};
 
+  // Host auto-walk state
+  let hostWalkTarget = 75;
+  let hostWalkPaused = false;
+  let hostWalkInterval;
+
+  // Jump state
+  let jumpingPlayers = new Set();
+  let starPlayers = new Set();
+
+  // Find host sessionId from users array
+  $: hostSessionId = users.find(u => u.isHousemaster)?.id || '';
+
   function handlePlayerMove(e) {
     const { sessionId: senderId, position, direction } = e.detail;
     if (senderId !== sessionId) {
@@ -23,12 +35,87 @@
     }
   }
 
+  function handlePlayerJump(e) {
+    const { sessionId: senderId } = e.detail;
+    if (senderId !== sessionId) {
+      jumpingPlayers = new Set([...jumpingPlayers, senderId]);
+      // Check if jumper overlaps host
+      const jumperPos = (allPositions[senderId] || {}).position || 50;
+      const hostPos = (allPositions[hostSessionId] || {}).position || 50;
+      if (Math.abs(jumperPos - hostPos) < 8) {
+        starPlayers = new Set([...starPlayers, senderId]);
+        setTimeout(() => {
+          starPlayers = new Set([...starPlayers].filter(id => id !== senderId));
+        }, 800);
+      }
+      setTimeout(() => {
+        jumpingPlayers = new Set([...jumpingPlayers].filter(id => id !== senderId));
+      }, 400);
+    }
+  }
+
   onMount(() => {
     window.addEventListener('playerMove', handlePlayerMove);
+    window.addEventListener('playerJump', handlePlayerJump);
+
+    // Host auto-walk
+    if (isHousemaster) {
+      hostWalkTarget = 65 + Math.random() * 20; // 65-85%
+      myDirection = 1;
+      hostWalkInterval = setInterval(() => {
+        if (hostWalkPaused) return;
+
+        const speed = 0.4;
+        if (myDirection > 0) {
+          myPosition = Math.min(95, myPosition + speed);
+          if (myPosition >= hostWalkTarget) {
+            hostWalkPaused = true;
+            setTimeout(() => {
+              hostWalkTarget = 15 + Math.random() * 20; // 15-35%
+              myDirection = -1;
+              hostWalkPaused = false;
+            }, 1000 + Math.random() * 1000);
+          }
+        } else {
+          myPosition = Math.max(5, myPosition - speed);
+          if (myPosition <= hostWalkTarget) {
+            hostWalkPaused = true;
+            setTimeout(() => {
+              hostWalkTarget = 65 + Math.random() * 20; // 65-85%
+              myDirection = 1;
+              hostWalkPaused = false;
+            }, 1000 + Math.random() * 1000);
+          }
+        }
+        broadcastMove();
+      }, 150);
+    }
+
     return () => {
       window.removeEventListener('playerMove', handlePlayerMove);
+      window.removeEventListener('playerJump', handlePlayerJump);
+      if (hostWalkInterval) clearInterval(hostWalkInterval);
     };
   });
+
+  function jump() {
+    jumpingPlayers = new Set([...jumpingPlayers, sessionId]);
+    if (websocket) websocket.sendPlayerJump();
+
+    // Check if overlapping host
+    const myPos = myPosition;
+    const hostPos = (allPositions[hostSessionId] || {}).position || 50;
+    if (Math.abs(myPos - hostPos) < 8) {
+      starPlayers = new Set([...starPlayers, sessionId]);
+      setTimeout(() => {
+        starPlayers = new Set([...starPlayers].filter(id => id !== sessionId));
+      }, 800);
+    }
+
+    setTimeout(() => {
+      jumpingPlayers = new Set([...jumpingPlayers].filter(id => id !== sessionId));
+    }, 400);
+  }
 
   function moveLeft() {
     myDirection = -1;
@@ -102,6 +189,7 @@
               class="arena-character"
               class:facing-left={pos.direction < 0}
               class:is-me={isMe}
+              class:jumping={jumpingPlayers.has(player.id)}
               style="left: {pos.position}%; --char-color: {getPlayerColor(index)};"
             >
               <div class="pixel-char">
@@ -110,6 +198,9 @@
                 <div class="legs"></div>
               </div>
               <div class="name-tag" class:me={isMe}>{player.name}</div>
+              {#if starPlayers.has(player.id)}
+                <div class="star-burst">★</div>
+              {/if}
             </div>
           {/each}
         {/if}
@@ -119,6 +210,7 @@
       {#if !isHousemaster}
         <div class="controls">
           <button class="arrow-btn" on:click={moveLeft}>◀</button>
+          <button class="arrow-btn jump-btn" on:click={jump}>⬆</button>
           <button class="arrow-btn" on:click={moveRight}>▶</button>
         </div>
       {/if}
@@ -353,6 +445,39 @@
   .arrow-btn:active {
     transform: scale(0.95);
     background: linear-gradient(135deg, rgba(102, 126, 234, 0.4), rgba(102, 126, 234, 0.2));
+  }
+
+  .jump-btn {
+    font-size: 1.6rem;
+  }
+
+  /* Jump animation */
+  .arena-character.jumping .pixel-char {
+    animation: jump-arc 0.4s ease-out;
+  }
+
+  @keyframes jump-arc {
+    0% { transform: translateY(0); }
+    40% { transform: translateY(-40px); }
+    100% { transform: translateY(0); }
+  }
+
+  /* Star burst */
+  .star-burst {
+    position: absolute;
+    top: -40px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 20px;
+    color: #ffc107;
+    animation: star-float 0.8s ease-out forwards;
+    pointer-events: none;
+  }
+
+  @keyframes star-float {
+    0% { opacity: 1; transform: translateX(-50%) translateY(0) scale(0.5); }
+    50% { opacity: 1; transform: translateX(-50%) translateY(-20px) scale(1.2); }
+    100% { opacity: 0; transform: translateX(-50%) translateY(-35px) scale(0.8); }
   }
 
   @media (max-width: 600px) {
