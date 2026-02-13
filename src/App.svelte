@@ -180,6 +180,11 @@
 
   function handleTestsPass() {
     console.log("✅ Tests passed");
+    // If we already restored into a room, don't override
+    if (appState === STATES.IN_ROOM) {
+      console.log("🚀 Already in room, skipping test flow");
+      return;
+    }
     // Check if we have a saved name
     const savedName = localStorage.getItem("multitrail_last_name");
     if (savedName) {
