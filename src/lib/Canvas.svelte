@@ -18,6 +18,7 @@
   export let roomMode = 'trail'; // 'trail' or 'tafel'
   export let activeTool = 'pen'; // 'pen', 'brush', 'eraser'
   export let tafelManager = null; // Shared TafelManager instance
+  export let canDraw = true; // Whether the user is allowed to draw
 
   const dispatch = createEventDispatcher();
 
@@ -409,6 +410,7 @@
   function handleKeyDown(e) {
     // Only type when canvas is hovered (cursor is over canvas)
     if (!isCanvasHovered) return;
+    if (!canDraw) return;
 
     // Ignore modifier keys and special keys
     if (e.ctrlKey || e.metaKey || e.altKey) return;
@@ -451,6 +453,7 @@
 
   // Mouse events (for desktop testing)
   function handleMouseDown(e) {
+    if (!canDraw) return;
     console.log('🖱️ Mouse down - mode:', roomMode, 'tool:', activeTool);
     isDrawing = true;
     const rect = canvas.getBoundingClientRect();
@@ -670,6 +673,7 @@
   // Touch events (for mobile)
   function handleTouchStart(e) {
     e.preventDefault();
+    if (!canDraw) return;
     isDrawing = true;
     isCanvasHovered = true; // Touch implies hover
     const touch = e.touches[0];
@@ -748,6 +752,7 @@
 
 <canvas
   bind:this={canvas}
+  class:locked={!canDraw}
   on:mousedown={handleMouseDown}
   on:mousemove={handleMouseMove}
   on:mouseup={handleMouseUp}
@@ -759,6 +764,15 @@
   on:touchcancel={handleTouchEnd}
 />
 
+{#if !canDraw}
+  <div class="lock-indicator">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+      <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+    </svg>
+  </div>
+{/if}
+
 <style>
   canvas {
     display: block;
@@ -766,5 +780,24 @@
     height: 100%;
     cursor: crosshair;
     touch-action: none;
+  }
+
+  canvas.locked {
+    cursor: not-allowed;
+  }
+
+  .lock-indicator {
+    position: fixed;
+    bottom: 16px;
+    left: 16px;
+    background: rgba(255, 107, 107, 0.15);
+    color: rgba(255, 107, 107, 0.6);
+    border-radius: 8px;
+    padding: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    z-index: 100;
   }
 </style>

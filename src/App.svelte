@@ -77,7 +77,7 @@
   let showShareModal = false; // Show share modal after room creation
 
   // Tafel mode state
-  let roomMode = "trail"; // 'trail', 'tafel', or 'quiz'
+  let roomMode = "avatar"; // 'avatar', 'tafel', 'trail', or 'quiz'
   let activeTool = "pen"; // 'pen', 'brush', 'eraser'
   let tafelManager = null;
 
@@ -315,8 +315,8 @@
       isHousemaster: false,
     };
 
-    // Reset Tafel state
-    roomMode = "trail";
+    // Reset mode state
+    roomMode = "avatar";
     activeTool = "pen";
     if (tafelManager) {
       tafelManager.clearAll();
@@ -445,14 +445,14 @@
     console.log("📋 Received room initial state:", event.detail);
     const { mode, tafelStrokes } = event.detail;
 
-    // If housemaster and no existing strokes (new room), enforce 'trail' mode
+    // If housemaster and no existing strokes (new room), enforce 'avatar' mode
     const isNewRoom = !tafelStrokes || tafelStrokes.length === 0;
-    if (roomState.isHousemaster && isNewRoom && mode !== "trail") {
-      console.log("🔄 New room created by host, enforcing trail mode");
-      roomMode = "trail";
+    if (roomState.isHousemaster && isNewRoom && mode !== "avatar") {
+      console.log("🔄 New room created by host, enforcing avatar mode");
+      roomMode = "avatar";
       // Notify server about the mode
       if (websocket) {
-        websocket.sendModeChange("trail");
+        websocket.sendModeChange("avatar");
       }
     } else {
       // Use server's mode for existing rooms or when joining
@@ -586,6 +586,28 @@
     console.log("🗑️ Tafel erase:", strokeIds);
     // Already deleted locally in Canvas.svelte, just log
   }
+
+  // Draw permission handlers
+  function handleToggleDrawUser(event) {
+    const { userId, canDraw } = event.detail;
+    if (websocket) {
+      websocket.sendSetDrawPermission(userId, canDraw);
+    }
+  }
+
+  function handleToggleDrawAll(event) {
+    const { canDraw } = event.detail;
+    if (websocket) {
+      websocket.sendSetDrawPermissionAll(canDraw);
+    }
+  }
+
+  // Determine if current user can draw
+  $: currentUserCanDraw = (() => {
+    if (roomState.isHousemaster) return true;
+    const me = roomState.users.find((u) => u.id === roomState.sessionId);
+    return me ? me.canDraw !== false : true;
+  })();
 </script>
 
 <main>
@@ -633,6 +655,7 @@
         {roomMode}
         {activeTool}
         {tafelManager}
+        canDraw={currentUserCanDraw}
         on:tafelStrokeComplete={handleTafelStrokeComplete}
         on:tafelErase={handleTafelErase}
       />
@@ -671,7 +694,10 @@
       users={roomState.users}
       currentUserId={roomState.sessionId}
       show={showUserList}
+      isHousemaster={roomState.isHousemaster}
       on:close={closeUserList}
+      on:toggleDrawUser={handleToggleDrawUser}
+      on:toggleDrawAll={handleToggleDrawAll}
     />
   {/if}
 </main>

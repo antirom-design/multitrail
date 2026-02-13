@@ -1,11 +1,15 @@
 <script>
   import { createEventDispatcher } from 'svelte';
 
-  export let users = []; // Array of { id, name, isHousemaster }
+  export let users = []; // Array of { id, name, isHousemaster, canDraw }
   export let currentUserId = null;
   export let show = false;
+  export let isHousemaster = false;
 
   const dispatch = createEventDispatcher();
+
+  $: allStudentsLocked = users.filter(u => !u.isHousemaster).every(u => !u.canDraw);
+  $: hasStudents = users.some(u => !u.isHousemaster);
 
   function handleClose() {
     dispatch('close');
@@ -18,6 +22,18 @@
   function handleContentClick(e) {
     e.stopPropagation();
   }
+
+  function toggleDrawUser(userId) {
+    const user = users.find(u => u.id === userId);
+    if (!user || user.isHousemaster) return;
+    dispatch('toggleDrawUser', { userId, canDraw: !user.canDraw });
+  }
+
+  function toggleDrawAll() {
+    // If any student can draw, lock all. If all locked, unlock all.
+    const newCanDraw = allStudentsLocked;
+    dispatch('toggleDrawAll', { canDraw: newCanDraw });
+  }
 </script>
 
 {#if show}
@@ -25,7 +41,31 @@
     <div class="user-list" on:click={handleContentClick} role="document">
       <div class="header">
         <h3>Online ({users.length})</h3>
-        <button class="close-btn" on:click={handleClose} aria-label="Close">×</button>
+        <div class="header-actions">
+          {#if isHousemaster && hasStudents}
+            <button
+              class="lock-all-btn"
+              class:locked={allStudentsLocked}
+              on:click={toggleDrawAll}
+              title={allStudentsLocked ? 'Unlock all drawing' : 'Lock all drawing'}
+            >
+              {#if allStudentsLocked}
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+                <span>Unlock All</span>
+              {:else}
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+                <span>Lock All</span>
+              {/if}
+            </button>
+          {/if}
+          <button class="close-btn" on:click={handleClose} aria-label="Close">x</button>
+        </div>
       </div>
       <ul>
         {#each users as user}
@@ -37,6 +77,32 @@
             {/if}
             {#if user.id === currentUserId}
               <span class="badge you">You</span>
+            {/if}
+            {#if isHousemaster && !user.isHousemaster}
+              <button
+                class="draw-toggle"
+                class:locked={!user.canDraw}
+                on:click|stopPropagation={() => toggleDrawUser(user.id)}
+                title={user.canDraw ? 'Block drawing' : 'Allow drawing'}
+              >
+                {#if user.canDraw}
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                    <path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+                  </svg>
+                {:else}
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                  </svg>
+                {/if}
+              </button>
+            {:else if !isHousemaster && !user.isHousemaster && user.canDraw === false}
+              <span class="draw-status locked">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+              </span>
             {/if}
           </li>
         {/each}
@@ -100,6 +166,12 @@
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   }
 
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
   h3 {
     margin: 0;
     font-size: 1.1rem;
@@ -126,6 +198,34 @@
 
   .close-btn:hover {
     opacity: 0.7;
+  }
+
+  .lock-all-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.8);
+    cursor: pointer;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    transition: all 0.2s;
+  }
+
+  .lock-all-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+  }
+
+  .lock-all-btn.locked {
+    background: rgba(255, 107, 107, 0.15);
+    border-color: rgba(255, 107, 107, 0.3);
+    color: #ff6b6b;
   }
 
   ul {
@@ -185,6 +285,46 @@
 
   .badge.you {
     background: rgba(102, 126, 234, 0.7);
+  }
+
+  .draw-toggle {
+    margin-left: 8px;
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    border: none;
+    background: rgba(16, 185, 129, 0.15);
+    color: #10b981;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+
+  .draw-toggle:hover {
+    background: rgba(16, 185, 129, 0.25);
+  }
+
+  .draw-toggle.locked {
+    background: rgba(255, 107, 107, 0.15);
+    color: #ff6b6b;
+  }
+
+  .draw-toggle.locked:hover {
+    background: rgba(255, 107, 107, 0.25);
+  }
+
+  .draw-status {
+    margin-left: 8px;
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+  }
+
+  .draw-status.locked {
+    color: rgba(255, 107, 107, 0.6);
   }
 
   /* Mobile responsiveness */

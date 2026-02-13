@@ -307,6 +307,15 @@ export function createWebSocket(existingSessionId = null) {
     send('userColorChange', { color })
   }
 
+  // Draw permission methods
+  function sendSetDrawPermission(targetSessionId, canDraw) {
+    send('setDrawPermission', { targetSessionId, canDraw })
+  }
+
+  function sendSetDrawPermissionAll(canDraw) {
+    send('setDrawPermission', { all: true, canDraw })
+  }
+
   // Avatar mode methods
   function sendPlayerMove(position, direction) {
     send('playerMove', { position, direction })
@@ -375,6 +384,8 @@ export function createWebSocket(existingSessionId = null) {
     sendTafelClear,
     sendTafelClearMine,
     sendUserColorChange,
+    sendSetDrawPermission,
+    sendSetDrawPermissionAll,
     sendPlayerMove,
     startQuizMission,
     submitQuizAnswer,

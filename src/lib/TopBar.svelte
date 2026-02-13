@@ -172,8 +172,8 @@
           out:fade={{ duration: 150 }}
         >
           <button
-            class="mode-item {roomMode === 'trail' ? 'active' : ''}"
-            on:click={() => handleModeChange("trail")}
+            class="mode-item {roomMode === 'avatar' ? 'active' : ''} avatar"
+            on:click={() => handleModeChange("avatar")}
           >
             <div class="mode-icon">
               <svg
@@ -182,12 +182,11 @@
                 stroke="currentColor"
                 stroke-width="2"
               >
-                <path d="M12 2L2 7l10 5 10-5-10-5z" />
-                <path d="M2 17l10 5 10-5" />
-                <path d="M2 12l10 5 10-5" />
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                <circle cx="12" cy="7" r="4" />
               </svg>
             </div>
-            <span>Multitrail</span>
+            <span>Avatar</span>
           </button>
 
           <button
@@ -210,6 +209,25 @@
           </button>
 
           <button
+            class="mode-item {roomMode === 'trail' ? 'active' : ''}"
+            on:click={() => handleModeChange("trail")}
+          >
+            <div class="mode-icon">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                <path d="M2 17l10 5 10-5" />
+                <path d="M2 12l10 5 10-5" />
+              </svg>
+            </div>
+            <span>Multitrail</span>
+          </button>
+
+          <button
             class="mode-item {roomMode === 'quiz' ? 'active' : ''} quiz"
             on:click={() => handleModeChange("quiz")}
           >
@@ -226,24 +244,6 @@
               </svg>
             </div>
             <span>Quiz Mission</span>
-          </button>
-
-          <button
-            class="mode-item {roomMode === 'avatar' ? 'active' : ''} avatar"
-            on:click={() => handleModeChange("avatar")}
-          >
-            <div class="mode-icon">
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-              >
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                <circle cx="12" cy="7" r="4" />
-              </svg>
-            </div>
-            <span>Avatar</span>
           </button>
         </div>
       {/if}
