@@ -28,6 +28,77 @@
   // Find host sessionId from users array
   $: hostSessionId = users.find(u => u.isHousemaster)?.id || '';
 
+  // === Avatar Customization Presets ===
+  const HAIR_PRESETS = [
+    { style: 'none', color: '' },
+    { style: 'short', color: '#3a2a1a' },
+    { style: 'short', color: '#c8a24e' },
+    { style: 'long', color: '#3a2a1a' },
+    { style: 'long', color: '#c8a24e' },
+  ];
+
+  const SKIN_COLORS = ['#ffd8b1', '#f0c090', '#d4a574', '#a0724a', '#6b4423'];
+
+  const EYE_PRESETS = [
+    { w: 4, h: 4, r: '1px', color: '#333' },
+    { w: 5, h: 2, r: '0px', color: '#333' },
+    { w: 5, h: 5, r: '50%', color: '#222' },
+    { w: 3, h: 3, r: '50%', color: '#1a5276' },
+    { w: 6, h: 2, r: '1px', color: '#555' },
+  ];
+
+  const SHIRT_COLORS = [null, '#d94040', '#4066d9', '#40a060', '#8040c0', '#d9b040'];
+  const PANTS_COLORS = ['#4a4a4a', '#2c4a7a', '#6a4a2a', '#3a5a3a', '#1a1a1a'];
+
+  // Load saved customization from localStorage
+  const saved = JSON.parse(localStorage.getItem('multitrail_avatar') || '{}');
+  let myCustomization = {
+    hair: saved.hair || 0,
+    skin: saved.skin || 0,
+    eyes: saved.eyes || 0,
+    shirt: saved.shirt || 0,
+    pants: saved.pants || 0,
+  };
+
+  let playerCustomizations = {};
+  let showCustomizeModal = false;
+
+  function setCustomization(key, value) {
+    myCustomization = { ...myCustomization, [key]: value };
+    localStorage.setItem('multitrail_avatar', JSON.stringify(myCustomization));
+    broadcastCustomization();
+  }
+
+  function broadcastCustomization() {
+    if (websocket) {
+      websocket.sendPlayerCustomize(myCustomization);
+    }
+  }
+
+  function handlePlayerCustomize(e) {
+    const { sessionId: senderId, customization } = e.detail;
+    if (senderId !== sessionId) {
+      playerCustomizations = { ...playerCustomizations, [senderId]: customization };
+    }
+  }
+
+  $: myUserIndex = users.findIndex(u => u.id === sessionId);
+
+  // Re-broadcast customization when user list changes so new joiners see it
+  let prevUserCount = 0;
+  $: if (users.length !== prevUserCount) {
+    prevUserCount = users.length;
+    if (users.length > 0) setTimeout(broadcastCustomization, 500);
+  }
+
+  // Resolved preview values for modal
+  $: previewHair = HAIR_PRESETS[myCustomization.hair] || HAIR_PRESETS[0];
+  $: previewSkin = SKIN_COLORS[myCustomization.skin] || SKIN_COLORS[0];
+  $: previewEye = EYE_PRESETS[myCustomization.eyes] || EYE_PRESETS[0];
+  $: previewShirt = SHIRT_COLORS[myCustomization.shirt] || (myUserIndex >= 0 ? getPlayerColor(myUserIndex) : '#667eea');
+  $: previewPants = PANTS_COLORS[myCustomization.pants] || PANTS_COLORS[0];
+
+  // === Event handlers ===
   function handlePlayerMove(e) {
     const { sessionId: senderId, position, direction } = e.detail;
     if (senderId !== sessionId) {
@@ -39,7 +110,6 @@
     const { sessionId: senderId } = e.detail;
     if (senderId !== sessionId) {
       jumpingPlayers = new Set([...jumpingPlayers, senderId]);
-      // Check if jumper overlaps host
       const jumperPos = (allPositions[senderId] || {}).position || 50;
       const hostPos = (allPositions[hostSessionId] || {}).position || 50;
       if (Math.abs(jumperPos - hostPos) < 8) {
@@ -57,21 +127,24 @@
   onMount(() => {
     window.addEventListener('playerMove', handlePlayerMove);
     window.addEventListener('playerJump', handlePlayerJump);
+    window.addEventListener('playerCustomize', handlePlayerCustomize);
+
+    // Broadcast customization after connection is established
+    setTimeout(broadcastCustomization, 1000);
 
     // Host auto-walk
     if (isHousemaster) {
-      hostWalkTarget = 65 + Math.random() * 20; // 65-85%
+      hostWalkTarget = 65 + Math.random() * 20;
       myDirection = 1;
       hostWalkInterval = setInterval(() => {
         if (hostWalkPaused) return;
-
         const speed = 0.4;
         if (myDirection > 0) {
           myPosition = Math.min(95, myPosition + speed);
           if (myPosition >= hostWalkTarget) {
             hostWalkPaused = true;
             setTimeout(() => {
-              hostWalkTarget = 15 + Math.random() * 20; // 15-35%
+              hostWalkTarget = 15 + Math.random() * 20;
               myDirection = -1;
               hostWalkPaused = false;
             }, 1000 + Math.random() * 1000);
@@ -81,7 +154,7 @@
           if (myPosition <= hostWalkTarget) {
             hostWalkPaused = true;
             setTimeout(() => {
-              hostWalkTarget = 65 + Math.random() * 20; // 65-85%
+              hostWalkTarget = 65 + Math.random() * 20;
               myDirection = 1;
               hostWalkPaused = false;
             }, 1000 + Math.random() * 1000);
@@ -94,6 +167,7 @@
     return () => {
       window.removeEventListener('playerMove', handlePlayerMove);
       window.removeEventListener('playerJump', handlePlayerJump);
+      window.removeEventListener('playerCustomize', handlePlayerCustomize);
       if (hostWalkInterval) clearInterval(hostWalkInterval);
     };
   });
@@ -101,8 +175,6 @@
   function jump() {
     jumpingPlayers = new Set([...jumpingPlayers, sessionId]);
     if (websocket) websocket.sendPlayerJump();
-
-    // Check if overlapping host
     const myPos = myPosition;
     const hostPos = (allPositions[hostSessionId] || {}).position || 50;
     if (Math.abs(myPos - hostPos) < 8) {
@@ -111,7 +183,6 @@
         starPlayers = new Set([...starPlayers].filter(id => id !== sessionId));
       }, 800);
     }
-
     setTimeout(() => {
       jumpingPlayers = new Set([...jumpingPlayers].filter(id => id !== sessionId));
     }, 400);
@@ -185,14 +256,23 @@
           {#each users as player, index (player.id)}
             {@const pos = allPositions[player.id] || { position: 50, direction: 1 }}
             {@const isMe = player.id === sessionId}
+            {@const cust = isMe ? myCustomization : (playerCustomizations[player.id] || { hair: 0, skin: 0, eyes: 0, shirt: 0, pants: 0 })}
+            {@const hair = HAIR_PRESETS[cust.hair] || HAIR_PRESETS[0]}
+            {@const skin = SKIN_COLORS[cust.skin] || SKIN_COLORS[0]}
+            {@const eye = EYE_PRESETS[cust.eyes] || EYE_PRESETS[0]}
+            {@const shirt = SHIRT_COLORS[cust.shirt] || getPlayerColor(index)}
+            {@const pants = PANTS_COLORS[cust.pants] || PANTS_COLORS[0]}
             <div
               class="arena-character"
               class:facing-left={pos.direction < 0}
               class:is-me={isMe}
               class:jumping={jumpingPlayers.has(player.id)}
-              style="left: {pos.position}%; --char-color: {getPlayerColor(index)};"
+              style="left: {pos.position}%; --char-color: {shirt}; --skin-color: {skin}; --eye-w: {eye.w}px; --eye-h: {eye.h}px; --eye-r: {eye.r}; --eye-color: {eye.color}; --pants-color: {pants};"
             >
               <div class="pixel-char">
+                {#if hair.style !== 'none'}
+                  <div class="hair hair-{hair.style}" style="background: {hair.color}"></div>
+                {/if}
                 <div class="head"></div>
                 <div class="body"></div>
                 <div class="legs"></div>
@@ -214,9 +294,90 @@
           <button class="arrow-btn" on:click={moveRight}>▶</button>
         </div>
       {/if}
+
+      <button class="customize-btn" on:click={() => showCustomizeModal = true}>MyAvatar</button>
     </div>
   </div>
 </div>
+
+{#if showCustomizeModal}
+<div class="customize-overlay" on:click={() => showCustomizeModal = false}>
+  <div class="customize-modal" on:click|stopPropagation>
+    <div class="preview-area">
+      <div class="arena-character preview-char" style="--char-color: {previewShirt}; --skin-color: {previewSkin}; --eye-w: {previewEye.w}px; --eye-h: {previewEye.h}px; --eye-r: {previewEye.r}; --eye-color: {previewEye.color}; --pants-color: {previewPants};">
+        <div class="pixel-char">
+          {#if previewHair.style !== 'none'}
+            <div class="hair hair-{previewHair.style}" style="background: {previewHair.color}"></div>
+          {/if}
+          <div class="head"></div>
+          <div class="body"></div>
+          <div class="legs"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="option-group">
+      <span class="option-label">Haare</span>
+      <div class="option-row">
+        {#each HAIR_PRESETS as hp, i}
+          <button class="swatch" class:selected={myCustomization.hair === i} on:click={() => setCustomization('hair', i)}>
+            {#if hp.style === 'none'}
+              <span class="swatch-text">-</span>
+            {:else}
+              <span class="hair-sw hair-sw-{hp.style}" style="background: {hp.color}"></span>
+            {/if}
+          </button>
+        {/each}
+      </div>
+    </div>
+
+    <div class="option-group">
+      <span class="option-label">Haut</span>
+      <div class="option-row">
+        {#each SKIN_COLORS as color, i}
+          <button class="swatch color-sw" class:selected={myCustomization.skin === i} style="--sw-color: {color}" on:click={() => setCustomization('skin', i)}></button>
+        {/each}
+      </div>
+    </div>
+
+    <div class="option-group">
+      <span class="option-label">Augen</span>
+      <div class="option-row">
+        {#each EYE_PRESETS as ep, i}
+          <button class="swatch eye-sw" class:selected={myCustomization.eyes === i} on:click={() => setCustomization('eyes', i)}>
+            <span class="eye-pair">
+              <span class="eye-dot" style="width: {ep.w}px; height: {ep.h}px; background: {ep.color}; border-radius: {ep.r};"></span>
+              <span class="eye-dot" style="width: {ep.w}px; height: {ep.h}px; background: {ep.color}; border-radius: {ep.r};"></span>
+            </span>
+          </button>
+        {/each}
+      </div>
+    </div>
+
+    <div class="option-group">
+      <span class="option-label">Pulli</span>
+      <div class="option-row">
+        {#each SHIRT_COLORS as color, i}
+          <button class="swatch color-sw" class:selected={myCustomization.shirt === i} style="--sw-color: {color || (myUserIndex >= 0 ? getPlayerColor(myUserIndex) : '#667eea')}" on:click={() => setCustomization('shirt', i)}>
+            {#if !color}<span class="swatch-text">A</span>{/if}
+          </button>
+        {/each}
+      </div>
+    </div>
+
+    <div class="option-group">
+      <span class="option-label">Hose</span>
+      <div class="option-row">
+        {#each PANTS_COLORS as color, i}
+          <button class="swatch color-sw" class:selected={myCustomization.pants === i} style="--sw-color: {color}" on:click={() => setCustomization('pants', i)}></button>
+        {/each}
+      </div>
+    </div>
+
+    <button class="done-btn" on:click={() => showCustomizeModal = false}>Fertig</button>
+  </div>
+</div>
+{/if}
 
 <style>
   .avatar-view {
@@ -337,10 +498,33 @@
     image-rendering: pixelated;
   }
 
+  /* --- Hair --- */
+  .hair {
+    position: absolute;
+    z-index: 1;
+    image-rendering: pixelated;
+  }
+
+  .hair-short {
+    top: -3px;
+    left: 6px;
+    width: 20px;
+    height: 7px;
+    border-radius: 3px 3px 0 0;
+  }
+
+  .hair-long {
+    top: -4px;
+    left: 4px;
+    width: 24px;
+    height: 14px;
+    border-radius: 4px 4px 2px 2px;
+  }
+
   .arena-character .head {
     width: 20px;
     height: 20px;
-    background: #ffd8b1;
+    background: var(--skin-color, #ffd8b1);
     border-radius: 4px;
     position: absolute;
     top: 0;
@@ -355,11 +539,11 @@
     position: absolute;
     top: 7px;
     left: 4px;
-    width: 4px;
-    height: 4px;
-    background: #333;
-    box-shadow: 8px 0 0 #333;
-    border-radius: 1px;
+    width: var(--eye-w, 4px);
+    height: var(--eye-h, 4px);
+    background: var(--eye-color, #333);
+    box-shadow: 8px 0 0 var(--eye-color, #333);
+    border-radius: var(--eye-r, 1px);
   }
 
   .arena-character .body {
@@ -381,8 +565,8 @@
     left: 6px;
     width: 8px;
     height: 14px;
-    background: #4a4a4a;
-    box-shadow: 12px 0 0 #4a4a4a;
+    background: var(--pants-color, #4a4a4a);
+    box-shadow: 12px 0 0 var(--pants-color, #4a4a4a);
     border-radius: 0 0 3px 3px;
     animation: walk 0.4s steps(2) infinite;
   }
@@ -478,6 +662,164 @@
     0% { opacity: 1; transform: translateX(-50%) translateY(0) scale(0.5); }
     50% { opacity: 1; transform: translateX(-50%) translateY(-20px) scale(1.2); }
     100% { opacity: 0; transform: translateX(-50%) translateY(-35px) scale(0.8); }
+  }
+
+  /* === CUSTOMIZE BUTTON === */
+  .customize-btn {
+    display: block;
+    margin: 12px auto 0;
+    padding: 8px 20px;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 10px;
+    background: rgba(255,255,255,0.08);
+    color: rgba(255,255,255,0.7);
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .customize-btn:hover {
+    background: rgba(255,255,255,0.15);
+    color: white;
+  }
+
+  /* === CUSTOMIZE MODAL === */
+  .customize-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 20px;
+  }
+
+  .customize-modal {
+    background: #1e1e3a;
+    border-radius: 20px;
+    padding: 24px;
+    max-width: 340px;
+    width: 100%;
+    max-height: 85vh;
+    overflow-y: auto;
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+
+  .preview-area {
+    display: flex;
+    justify-content: center;
+    padding: 10px 0 8px;
+    min-height: 180px;
+    align-items: center;
+  }
+
+  .preview-char {
+    position: static !important;
+    transform: scale(3) !important;
+    transform-origin: center center;
+    bottom: auto !important;
+  }
+
+  .option-group {
+    margin-bottom: 14px;
+  }
+
+  .option-label {
+    display: block;
+    font-size: 0.7rem;
+    color: rgba(255,255,255,0.45);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .option-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .swatch {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    border: 2px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.05);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.1s ease;
+    padding: 0;
+  }
+
+  .swatch:hover {
+    border-color: rgba(255,255,255,0.3);
+  }
+
+  .swatch.selected {
+    border-color: #667eea;
+    box-shadow: 0 0 8px rgba(102, 126, 234, 0.4);
+  }
+
+  .color-sw {
+    background: var(--sw-color) !important;
+  }
+
+  .swatch-text {
+    color: rgba(255,255,255,0.6);
+    font-size: 0.8rem;
+    font-weight: 600;
+  }
+
+  .hair-sw {
+    display: block;
+    border-radius: 2px;
+  }
+
+  .hair-sw-short {
+    width: 18px;
+    height: 6px;
+    border-radius: 3px 3px 0 0;
+  }
+
+  .hair-sw-long {
+    width: 20px;
+    height: 10px;
+    border-radius: 3px 3px 2px 2px;
+  }
+
+  .eye-sw {
+    background: rgba(255,255,255,0.1) !important;
+  }
+
+  .eye-pair {
+    display: flex;
+    gap: 3px;
+    align-items: center;
+  }
+
+  .eye-dot {
+    display: block;
+  }
+
+  .done-btn {
+    width: 100%;
+    margin-top: 18px;
+    padding: 12px;
+    border: none;
+    border-radius: 12px;
+    background: #667eea;
+    color: white;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+
+  .done-btn:hover {
+    background: #5a6fd6;
   }
 
   @media (max-width: 600px) {
