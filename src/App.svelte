@@ -118,21 +118,21 @@
   }
 
   // Persistence logic
-  $: if (appState) sessionStorage.setItem("multitrail_app_state", appState);
-  $: if (roomCode) sessionStorage.setItem("multitrail_room_code", roomCode);
-  $: if (roomMode) sessionStorage.setItem("multitrail_room_mode", roomMode);
-  $: if (sessionId) sessionStorage.setItem("multitrail_session_id", sessionId);
+  $: if (appState) localStorage.setItem("multitrail_app_state", appState);
+  $: if (roomCode) localStorage.setItem("multitrail_room_code", roomCode);
+  $: if (roomMode) localStorage.setItem("multitrail_room_mode", roomMode);
+  $: if (sessionId) localStorage.setItem("multitrail_session_id", sessionId);
   $: if (settings.color && settings.color !== "#ffffff")
-    sessionStorage.setItem("multitrail_color", settings.color);
+    localStorage.setItem("multitrail_color", settings.color);
   $: if (user && user.displayName)
     localStorage.setItem("multitrail_last_name", user.displayName);
 
   onMount(() => {
     // Generate or restore session ID
-    let storedSessionId = sessionStorage.getItem("multitrail_session_id");
+    let storedSessionId = localStorage.getItem("multitrail_session_id");
     if (!storedSessionId) {
       storedSessionId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      sessionStorage.setItem("multitrail_session_id", storedSessionId);
+      localStorage.setItem("multitrail_session_id", storedSessionId);
     }
     sessionId = storedSessionId;
     console.log("🆔 Session ID:", sessionId);
@@ -154,10 +154,10 @@
     }
 
     // Check for active room session (for page reload)
-    const savedRoomCode = sessionStorage.getItem("multitrail_room_code");
-    const savedColor = sessionStorage.getItem("multitrail_color");
-    const savedState = sessionStorage.getItem("multitrail_app_state");
-    const savedMode = sessionStorage.getItem("multitrail_room_mode");
+    const savedRoomCode = localStorage.getItem("multitrail_room_code");
+    const savedColor = localStorage.getItem("multitrail_color");
+    const savedState = localStorage.getItem("multitrail_app_state");
+    const savedMode = localStorage.getItem("multitrail_room_mode");
 
     if (savedRoomCode && !autoJoinRoomCode) {
       roomCode = savedRoomCode;
@@ -190,9 +190,9 @@
         if (!settings.color || settings.color === "#ffffff") {
           settings.color = getRandomColor();
         }
-        // Save to sessionStorage
-        sessionStorage.setItem("multitrail_room_code", roomCode);
-        sessionStorage.setItem("multitrail_color", settings.color);
+        // Save to localStorage
+        localStorage.setItem("multitrail_room_code", roomCode);
+        localStorage.setItem("multitrail_color", settings.color);
         appState = STATES.IN_ROOM;
         setTimeout(() => requestFullscreen(), 500);
       } else {
@@ -220,9 +220,9 @@
       console.log("🔗 Auto-joining room:", autoJoinRoomCode);
       roomCode = autoJoinRoomCode;
       settings.color = getRandomColor();
-      // Save to sessionStorage
-      sessionStorage.setItem("multitrail_room_code", roomCode);
-      sessionStorage.setItem("multitrail_color", settings.color);
+      // Save to localStorage
+      localStorage.setItem("multitrail_room_code", roomCode);
+      localStorage.setItem("multitrail_color", settings.color);
       appState = STATES.IN_ROOM;
       setTimeout(() => requestFullscreen(), 500);
     } else {
@@ -245,9 +245,9 @@
     console.log("🏠 Room code generated:", roomCode);
     console.log("🎨 User color assigned:", settings.color);
 
-    // Save to sessionStorage for reload persistence
-    sessionStorage.setItem("multitrail_room_code", roomCode);
-    sessionStorage.setItem("multitrail_color", settings.color);
+    // Save to localStorage for persistence
+    localStorage.setItem("multitrail_room_code", roomCode);
+    localStorage.setItem("multitrail_color", settings.color);
 
     roomState = { ...roomState, isHousemaster: true };
 
@@ -265,9 +265,9 @@
     settings.color = getRandomColor();
     console.log("🎨 User color assigned:", settings.color);
 
-    // Save to sessionStorage for reload persistence
-    sessionStorage.setItem("multitrail_room_code", roomCode);
-    sessionStorage.setItem("multitrail_color", settings.color);
+    // Save to localStorage for persistence
+    localStorage.setItem("multitrail_room_code", roomCode);
+    localStorage.setItem("multitrail_color", settings.color);
 
     console.log("🔄 Changing state to IN_ROOM...");
     appState = STATES.IN_ROOM;
@@ -286,9 +286,11 @@
   function handleLeaveRoom() {
     console.log("🚪 Leaving room...");
 
-    // Clear session storage (so reload won't rejoin)
-    sessionStorage.removeItem("multitrail_room_code");
-    sessionStorage.removeItem("multitrail_color");
+    // Clear localStorage (so reopen won't rejoin)
+    localStorage.removeItem("multitrail_room_code");
+    localStorage.removeItem("multitrail_color");
+    localStorage.removeItem("multitrail_app_state");
+    localStorage.removeItem("multitrail_room_mode");
 
     // Remove event listeners
     window.removeEventListener("modeChange", handleRemoteModeChange);
