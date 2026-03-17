@@ -1,5 +1,5 @@
 <script>
-  import { createEventDispatcher, afterUpdate, tick } from 'svelte';
+  import { createEventDispatcher, afterUpdate, onMount, onDestroy } from 'svelte';
   import { fly } from 'svelte/transition';
 
   export let show = false;
@@ -14,7 +14,13 @@
 
   let inputText = '';
   let messagesEl;
+  let sidebarEl;
   let replyTarget = null; // { id, name } for host replying to student in all2host
+
+  // Swipe-to-close state
+  let touchStartX = 0;
+  let touchCurrentX = 0;
+  let swiping = false;
 
   // Auto-scroll on new messages
   afterUpdate(() => {
@@ -22,6 +28,50 @@
       messagesEl.scrollTop = messagesEl.scrollHeight;
     }
   });
+
+  // ESC to close
+  function handleKeydownGlobal(e) {
+    if (e.key === 'Escape' && show) {
+      dispatch('close');
+    }
+  }
+
+  onMount(() => {
+    window.addEventListener('keydown', handleKeydownGlobal);
+  });
+
+  onDestroy(() => {
+    window.removeEventListener('keydown', handleKeydownGlobal);
+  });
+
+  // Swipe-to-close handlers
+  function handleTouchStart(e) {
+    touchStartX = e.touches[0].clientX;
+    touchCurrentX = touchStartX;
+    swiping = true;
+  }
+
+  function handleTouchMove(e) {
+    if (!swiping) return;
+    touchCurrentX = e.touches[0].clientX;
+    const dx = touchCurrentX - touchStartX;
+    // Only allow swipe right (positive dx)
+    if (dx > 0 && sidebarEl) {
+      sidebarEl.style.transform = `translateX(${dx}px)`;
+    }
+  }
+
+  function handleTouchEnd() {
+    if (!swiping) return;
+    swiping = false;
+    const dx = touchCurrentX - touchStartX;
+    if (dx > 100) {
+      dispatch('close');
+    }
+    if (sidebarEl) {
+      sidebarEl.style.transform = '';
+    }
+  }
 
   function sendMessage() {
     const text = inputText.trim();
@@ -67,7 +117,14 @@
 </script>
 
 {#if show}
-  <div class="chat-sidebar" transition:fly={{ x: 320, duration: 250 }}>
+  <div
+    class="chat-sidebar"
+    bind:this={sidebarEl}
+    transition:fly={{ x: 320, duration: 250 }}
+    on:touchstart={handleTouchStart}
+    on:touchmove={handleTouchMove}
+    on:touchend={handleTouchEnd}
+  >
     <div class="chat-header">
       <div class="header-left">
         <h3>Chat</h3>
@@ -124,7 +181,7 @@
         type="text"
         bind:value={inputText}
         on:keydown={handleKeydown}
-        placeholder={replyTarget ? `An ${replyTarget.name}...` : 'Nachricht...'}
+        placeholder={replyTarget ? `An ${replyTarget.name}...` : (isHousemaster && chatMode === 'all2host' ? 'An alle...' : 'Nachricht...')}
         maxlength="500"
         autocomplete="off"
       />
@@ -141,16 +198,17 @@
 <style>
   .chat-sidebar {
     position: fixed;
-    top: 0;
+    top: 56px;
     right: 0;
     width: 320px;
-    height: 100%;
+    height: calc(100% - 56px);
     background: rgba(10, 10, 15, 0.95);
     backdrop-filter: blur(20px);
     z-index: 900;
     display: flex;
     flex-direction: column;
     border-left: 1px solid rgba(255, 255, 255, 0.08);
+    will-change: transform;
   }
 
   .chat-header {
@@ -364,6 +422,8 @@
   @media (max-width: 600px) {
     .chat-sidebar {
       width: 100%;
+      top: 48px;
+      height: calc(100% - 48px);
     }
   }
 </style>
