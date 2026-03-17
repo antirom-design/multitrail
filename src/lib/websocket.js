@@ -82,11 +82,14 @@ export function createWebSocket(existingSessionId = null) {
           isHousemaster: data.isHousemaster,
           rooms: data.rooms || []
         }))
-        // Dispatch initial state event for mode and tafel strokes
+        // Dispatch initial state event for mode, tafel strokes, chat, and hand queue
         window.dispatchEvent(new CustomEvent('roomInitialState', {
           detail: {
             mode: data.mode || 'trail',
-            tafelStrokes: data.tafelStrokes || []
+            tafelStrokes: data.tafelStrokes || [],
+            chatMessages: data.chatMessages || [],
+            handQueue: data.handQueue || [],
+            chatMode: data.chatMode || 'all2all'
           }
         }))
         break
@@ -202,6 +205,36 @@ export function createWebSocket(existingSessionId = null) {
       case 'quizMissionEnded':
         console.log('🏁 Dispatching quizMissionEnded event:', data);
         window.dispatchEvent(new CustomEvent('quizMissionEnded', { detail: data }))
+        break
+
+      // Chat events
+      case 'chatMessage':
+        window.dispatchEvent(new CustomEvent('chatMessage', { detail: data }))
+        break
+
+      case 'chatModeChanged':
+        window.dispatchEvent(new CustomEvent('chatModeChanged', { detail: data }))
+        break
+
+      // Hand-raise events
+      case 'handRaised':
+        window.dispatchEvent(new CustomEvent('handRaised', { detail: data }))
+        break
+
+      case 'handLowered':
+        window.dispatchEvent(new CustomEvent('handLowered', { detail: data }))
+        break
+
+      case 'handCalledOn':
+        window.dispatchEvent(new CustomEvent('handCalledOn', { detail: data }))
+        break
+
+      case 'allHandsLowered':
+        window.dispatchEvent(new CustomEvent('allHandsLowered', { detail: data }))
+        break
+
+      case 'chatViewPushed':
+        window.dispatchEvent(new CustomEvent('chatViewPushed', { detail: data }))
         break
 
       case 'error':
@@ -346,6 +379,40 @@ export function createWebSocket(existingSessionId = null) {
     send('playerCustomize', { customization })
   }
 
+  // Chat methods
+  function sendChatMessage(text, replyTo = null) {
+    send('chatMessage', { text, replyTo })
+  }
+
+  function sendSetChatPermission(targetSessionId, canChat) {
+    send('setChatPermission', { targetSessionId, canChat })
+  }
+
+  function sendSetChatPermissionAll(canChat) {
+    send('setChatPermission', { all: true, canChat })
+  }
+
+  function sendSetChatMode(mode) {
+    send('setChatMode', { mode })
+  }
+
+  // Hand-raise methods
+  function sendRaiseHand() {
+    send('raiseHand', {})
+  }
+
+  function sendLowerHand() {
+    send('lowerHand', {})
+  }
+
+  function sendCallOnStudent(targetSessionId) {
+    send('callOnStudent', { targetSessionId })
+  }
+
+  function sendLowerAllHands() {
+    send('lowerAllHands', {})
+  }
+
   // Quiz mode methods
   function startQuizMission(sessionId, questions) {
     console.log('🎮 startQuizMission() called with', questions.length, 'questions');
@@ -416,6 +483,14 @@ export function createWebSocket(existingSessionId = null) {
     sendPlayerMove,
     sendPlayerJump,
     sendPlayerCustomize,
+    sendChatMessage,
+    sendSetChatPermission,
+    sendSetChatPermissionAll,
+    sendSetChatMode,
+    sendRaiseHand,
+    sendLowerHand,
+    sendCallOnStudent,
+    sendLowerAllHands,
     startQuizMission,
     submitQuizAnswer,
     endQuizMission,

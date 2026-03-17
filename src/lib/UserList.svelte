@@ -1,16 +1,21 @@
 <script>
   import { createEventDispatcher } from 'svelte';
 
-  export let users = []; // Array of { id, name, isHousemaster, canDraw }
+  export let users = []; // Array of { id, name, isHousemaster, canDraw, canChat }
   export let currentUserId = null;
   export let show = false;
   export let isHousemaster = false;
+  export let handQueue = [];
+  export let chatMode = 'all2all';
 
   const dispatch = createEventDispatcher();
 
   $: allStudentsLocked = users.filter(u => !u.isHousemaster).every(u => !u.canDraw);
   $: allStudentsHostView = users.filter(u => !u.isHousemaster).every(u => u.hasHostView);
+  $: allStudentsChatLocked = users.filter(u => !u.isHousemaster).every(u => u.canChat === false);
   $: hasStudents = users.some(u => !u.isHousemaster);
+  $: raisedHands = new Set(handQueue.map(h => h.sessionId));
+  $: myHandRaised = raisedHands.has(currentUserId);
 
   function handleClose() {
     dispatch('close');
@@ -45,6 +50,22 @@
   function toggleHostViewAll() {
     const newHostView = !allStudentsHostView;
     dispatch('toggleHostViewAll', { hasHostView: newHostView });
+  }
+
+  function toggleChatUser(userId) {
+    const user = users.find(u => u.id === userId);
+    if (!user || user.isHousemaster) return;
+    dispatch('toggleChatUser', { userId, canChat: user.canChat === false });
+  }
+
+  function toggleChatAll() {
+    const newCanChat = allStudentsChatLocked;
+    dispatch('toggleChatAll', { canChat: newCanChat });
+  }
+
+  function toggleChatMode() {
+    const newMode = chatMode === 'all2all' ? 'all2host' : 'all2all';
+    dispatch('setChatMode', { mode: newMode });
   }
 </script>
 
@@ -87,14 +108,47 @@
                 <span>Lock All</span>
               {/if}
             </button>
+            <button
+              class="lock-all-btn"
+              class:locked={allStudentsChatLocked}
+              on:click={toggleChatAll}
+              title={allStudentsChatLocked ? 'Unlock all chat' : 'Lock all chat'}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              </svg>
+              <span>{allStudentsChatLocked ? 'Chat On' : 'Chat Off'}</span>
+            </button>
+            {#if handQueue.length > 0}
+              <button
+                class="lock-all-btn hand-clear"
+                on:click={() => dispatch('lowerAllHands')}
+                title="Lower all hands"
+              >
+                <span>✋ {handQueue.length}</span>
+              </button>
+            {/if}
           {/if}
           <button class="close-btn" on:click={handleClose} aria-label="Close">x</button>
         </div>
       </div>
+      {#if isHousemaster}
+        <div class="chat-mode-row">
+          <span class="chat-mode-label">Chat-Modus:</span>
+          <button class="chat-mode-toggle" on:click={toggleChatMode}>
+            {chatMode === 'all2all' ? 'Alle sehen alles' : 'Nur an Host'}
+          </button>
+        </div>
+      {/if}
+
       <ul>
         {#each users as user}
           <li class:current={user.id === currentUserId}>
-            <span class="indicator"></span>
+            {#if raisedHands.has(user.id)}
+              <span class="hand-icon" title="Hand raised">✋</span>
+            {:else}
+              <span class="indicator"></span>
+            {/if}
             <span class="name">{user.name}</span>
             {#if user.isHousemaster}
               <span class="badge">Host</span>
@@ -103,6 +157,17 @@
               <span class="badge you">You</span>
             {/if}
             {#if isHousemaster && !user.isHousemaster}
+              {#if raisedHands.has(user.id)}
+                <button
+                  class="draw-toggle call-toggle"
+                  on:click|stopPropagation={() => dispatch('callOnStudent', { targetSessionId: user.id })}
+                  title="Call on student"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                </button>
+              {/if}
               <button
                 class="draw-toggle hostview-toggle"
                 class:active={user.hasHostView}
@@ -136,6 +201,16 @@
                   </svg>
                 {/if}
               </button>
+              <button
+                class="draw-toggle chat-toggle"
+                class:locked={user.canChat === false}
+                on:click|stopPropagation={() => toggleChatUser(user.id)}
+                title={user.canChat === false ? 'Allow chat' : 'Block chat'}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                </svg>
+              </button>
             {:else if !isHousemaster && !user.isHousemaster && user.canDraw === false}
               <span class="draw-status locked">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
@@ -147,6 +222,18 @@
           </li>
         {/each}
       </ul>
+
+      {#if !isHousemaster}
+        <div class="hand-raise-section">
+          <button
+            class="raise-btn"
+            class:raised={myHandRaised}
+            on:click={() => dispatch(myHandRaised ? 'lowerHand' : 'raiseHand')}
+          >
+            {myHandRaised ? '✋ Hand senken' : '✋ Aufzeigen'}
+          </button>
+        </div>
+      {/if}
     </div>
   </div>
 {/if}
@@ -390,6 +477,118 @@
 
   .draw-status.locked {
     color: rgba(255, 107, 107, 0.6);
+  }
+
+  .hand-icon {
+    margin-right: 12px;
+    font-size: 1rem;
+    flex-shrink: 0;
+    animation: handPulse 1.5s ease-in-out infinite;
+  }
+
+  @keyframes handPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+  }
+
+  .call-toggle {
+    background: rgba(255, 193, 7, 0.15);
+    color: #ffc107;
+  }
+
+  .call-toggle:hover {
+    background: rgba(255, 193, 7, 0.25);
+  }
+
+  .chat-toggle {
+    background: rgba(102, 126, 234, 0.15);
+    color: #667eea;
+  }
+
+  .chat-toggle:hover {
+    background: rgba(102, 126, 234, 0.25);
+  }
+
+  .chat-toggle.locked {
+    background: rgba(255, 107, 107, 0.15);
+    color: #ff6b6b;
+  }
+
+  .chat-toggle.locked:hover {
+    background: rgba(255, 107, 107, 0.25);
+  }
+
+  .chat-mode-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    margin-bottom: 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 8px;
+  }
+
+  .chat-mode-label {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.5);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  .chat-mode-toggle {
+    padding: 4px 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(102, 126, 234, 0.3);
+    background: rgba(102, 126, 234, 0.1);
+    color: #667eea;
+    cursor: pointer;
+    font-size: 0.75rem;
+    font-weight: 600;
+    transition: all 0.2s;
+  }
+
+  .chat-mode-toggle:hover {
+    background: rgba(102, 126, 234, 0.2);
+  }
+
+  .hand-raise-section {
+    padding: 12px 0 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    margin-top: 8px;
+  }
+
+  .raise-btn {
+    width: 100%;
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 193, 7, 0.3);
+    background: rgba(255, 193, 7, 0.08);
+    color: rgba(255, 255, 255, 0.8);
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 600;
+    transition: all 0.2s;
+  }
+
+  .raise-btn:hover {
+    background: rgba(255, 193, 7, 0.15);
+    color: white;
+  }
+
+  .raise-btn.raised {
+    background: rgba(255, 193, 7, 0.2);
+    border-color: rgba(255, 193, 7, 0.5);
+    color: #ffc107;
+  }
+
+  .hand-clear {
+    background: rgba(255, 193, 7, 0.1);
+    border-color: rgba(255, 193, 7, 0.3);
+    color: #ffc107;
+  }
+
+  .hand-clear:hover {
+    background: rgba(255, 193, 7, 0.2);
   }
 
   /* Mobile responsiveness */

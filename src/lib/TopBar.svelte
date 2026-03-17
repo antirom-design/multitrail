@@ -8,6 +8,7 @@
   export let hasHostView = false;
   export let settings = {};
   export let showQRCode = false;
+  export let unreadCount = 0;
 
   const dispatch = createEventDispatcher();
 
@@ -274,6 +275,17 @@
     <div class="divider"></div>
   {/if}
 
+  <!-- Chat button -->
+  <button class="icon-btn chat-btn" on:click={() => dispatch('toggleChat')} title="Chat">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    </svg>
+    {#if unreadCount > 0}
+      <span class="badge">{unreadCount > 9 ? '9+' : unreadCount}</span>
+    {/if}
+  </button>
+  <div class="divider"></div>
+
   <!-- Leave button -->
   <button class="icon-btn leave-btn" on:click={requestLeave} title="Leave Room">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -476,6 +488,28 @@
   .icon-btn svg {
     width: 16px;
     height: 16px;
+  }
+
+  .chat-btn {
+    position: relative;
+  }
+
+  .badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    background: #ff6b6b;
+    color: white;
+    font-size: 0.55rem;
+    font-weight: 700;
+    min-width: 14px;
+    height: 14px;
+    border-radius: 7px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 3px;
+    line-height: 1;
   }
 
   .divider {

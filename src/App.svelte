@@ -11,6 +11,7 @@
   import QuizView from "./lib/QuizView.svelte";
   import AvatarView from "./lib/AvatarView.svelte";
   import AvatarCustomizeModal from "./lib/AvatarCustomizeModal.svelte";
+  import ChatPanel from "./lib/ChatPanel.svelte";
   import { createWebSocket } from "./lib/websocket.js";
   import { TafelManager } from "./lib/tafelManager.js";
 
@@ -79,6 +80,13 @@
   let avatarViewRef = null; // Reference to AvatarView for reloading customization
   let autoJoinRoomCode = null; // Room code from QR scan
   let showShareModal = false; // Show share modal after room creation
+
+  // Chat + hand-raise state
+  let showChat = false;
+  let chatMessages = [];
+  let unreadCount = 0;
+  let handQueue = [];
+  let chatMode = 'all2all';
 
   // Tafel mode state
   let roomMode = "avatar"; // 'avatar', 'tafel', 'trail', or 'quiz'
@@ -314,6 +322,13 @@
     window.removeEventListener("tafelStroke", handleRemoteTafelStroke);
     window.removeEventListener("tafelClear", handleRemoteTafelClear);
     window.removeEventListener("roomInitialState", handleRoomInitialState);
+    window.removeEventListener("chatMessage", handleChatMessage);
+    window.removeEventListener("chatModeChanged", handleChatModeChanged);
+    window.removeEventListener("handRaised", handleHandRaised);
+    window.removeEventListener("handLowered", handleHandLowered);
+    window.removeEventListener("handCalledOn", handleHandCalledOn);
+    window.removeEventListener("allHandsLowered", handleAllHandsLowered);
+    window.removeEventListener("chatViewPushed", handleChatViewPushed);
 
     if (websocket) {
       console.log("🔌 Disconnecting WebSocket...");
@@ -328,6 +343,13 @@
       sessionId: null,
       isHousemaster: false,
     };
+
+    // Reset chat + hand-raise state
+    chatMessages = [];
+    unreadCount = 0;
+    showChat = false;
+    handQueue = [];
+    chatMode = 'all2all';
 
     // Reset mode state
     roomMode = "avatar";
@@ -404,6 +426,13 @@
     window.addEventListener("tafelStroke", handleRemoteTafelStroke);
     window.addEventListener("tafelClear", handleRemoteTafelClear);
     window.addEventListener("roomInitialState", handleRoomInitialState);
+    window.addEventListener("chatMessage", handleChatMessage);
+    window.addEventListener("chatModeChanged", handleChatModeChanged);
+    window.addEventListener("handRaised", handleHandRaised);
+    window.addEventListener("handLowered", handleHandLowered);
+    window.addEventListener("handCalledOn", handleHandCalledOn);
+    window.addEventListener("allHandsLowered", handleAllHandsLowered);
+    window.addEventListener("chatViewPushed", handleChatViewPushed);
   }
 
   function handleRemoteModeChange(event) {
@@ -455,9 +484,85 @@
     }
   }
 
+  // Chat + Hand-raise handlers
+  function handleChatMessage(event) {
+    chatMessages = [...chatMessages, event.detail];
+    if (!showChat) unreadCount += 1;
+  }
+
+  function handleChatModeChanged(event) {
+    chatMode = event.detail.mode || 'all2all';
+  }
+
+  function handleHandRaised(event) {
+    const entry = event.detail;
+    if (!handQueue.find(h => h.sessionId === entry.sessionId)) {
+      handQueue = [...handQueue, entry];
+    }
+  }
+
+  function handleHandLowered(event) {
+    handQueue = handQueue.filter(h => h.sessionId !== event.detail.sessionId);
+  }
+
+  function handleHandCalledOn(event) {
+    handQueue = handQueue.filter(h => h.sessionId !== event.detail.sessionId);
+  }
+
+  function handleAllHandsLowered() {
+    handQueue = [];
+  }
+
+  function handleChatViewPushed() {
+    showChat = true;
+    unreadCount = 0;
+  }
+
+  function toggleChat() {
+    showChat = !showChat;
+    if (showChat) unreadCount = 0;
+  }
+
+  function closeChat() {
+    showChat = false;
+  }
+
+  // Hand-raise action handlers
+  function handleRaiseHand() {
+    if (websocket) websocket.sendRaiseHand();
+  }
+
+  function handleLowerHand() {
+    if (websocket) websocket.sendLowerHand();
+  }
+
+  function handleCallOnStudent(event) {
+    if (websocket) websocket.sendCallOnStudent(event.detail.targetSessionId);
+  }
+
+  function handleLowerAllHands() {
+    if (websocket) websocket.sendLowerAllHands();
+  }
+
+  // Chat permission handlers
+  function handleToggleChatUser(event) {
+    const { userId, canChat } = event.detail;
+    if (websocket) websocket.sendSetChatPermission(userId, canChat);
+  }
+
+  function handleToggleChatAll(event) {
+    const { canChat } = event.detail;
+    if (websocket) websocket.sendSetChatPermissionAll(canChat);
+  }
+
+  function handleSetChatMode(event) {
+    const { mode } = event.detail;
+    if (websocket) websocket.sendSetChatMode(mode);
+  }
+
   function handleRoomInitialState(event) {
     console.log("📋 Received room initial state:", event.detail);
-    const { mode, tafelStrokes } = event.detail;
+    const { mode, tafelStrokes, chatMessages: initialMessages, handQueue: initialHands, chatMode: initialChatMode } = event.detail;
 
     // If housemaster and no existing strokes (new room), enforce 'avatar' mode
     const isNewRoom = !tafelStrokes || tafelStrokes.length === 0;
@@ -478,6 +583,17 @@
     if (tafelManager && tafelStrokes && tafelStrokes.length > 0) {
       tafelManager.importStrokes(tafelStrokes);
       console.log("📝 Imported", tafelStrokes.length, "tafel strokes");
+    }
+
+    // Restore chat history and hand queue
+    if (initialMessages && initialMessages.length > 0) {
+      chatMessages = initialMessages;
+    }
+    if (initialHands && initialHands.length > 0) {
+      handQueue = initialHands;
+    }
+    if (initialChatMode) {
+      chatMode = initialChatMode;
     }
   }
 
@@ -730,10 +846,12 @@
       {roomMode}
       isHousemaster={roomState.isHousemaster}
       hasHostView={currentUserHasHostView}
+      {unreadCount}
       bind:settings
       bind:showQRCode={showShareModal}
       on:modeChange={handleModeChange}
       on:settingsUpdate={handleSettingsUpdate}
+      on:toggleChat={toggleChat}
       on:leave={handleLeaveRoom}
     />
 
@@ -756,11 +874,31 @@
       currentUserId={roomState.sessionId}
       show={showUserList}
       isHousemaster={roomState.isHousemaster}
+      {handQueue}
+      {chatMode}
       on:close={closeUserList}
       on:toggleDrawUser={handleToggleDrawUser}
       on:toggleDrawAll={handleToggleDrawAll}
       on:toggleHostViewUser={handleToggleHostViewUser}
       on:toggleHostViewAll={handleToggleHostViewAll}
+      on:raiseHand={handleRaiseHand}
+      on:lowerHand={handleLowerHand}
+      on:callOnStudent={handleCallOnStudent}
+      on:lowerAllHands={handleLowerAllHands}
+      on:toggleChatUser={handleToggleChatUser}
+      on:toggleChatAll={handleToggleChatAll}
+      on:setChatMode={handleSetChatMode}
+    />
+
+    <ChatPanel
+      show={showChat}
+      messages={chatMessages}
+      currentUserId={roomState.sessionId}
+      isHousemaster={roomState.isHousemaster}
+      {websocket}
+      users={roomState.users}
+      {chatMode}
+      on:close={closeChat}
     />
   {/if}
 </main>
