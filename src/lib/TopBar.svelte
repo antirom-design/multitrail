@@ -213,7 +213,7 @@
     <div class="divider"></div>
   {/if}
 
-  {#if isHousemaster || roomMode !== "quiz"}
+  {#if roomMode === "trail" || roomMode === "tafel"}
     <button
       class="icon-btn"
       class:active={showSettings}
