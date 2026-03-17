@@ -12,7 +12,6 @@
 
   const dispatch = createEventDispatcher();
 
-  let copied = false;
   let urlCopied = false;
   let showSettings = false;
   let showLeaveConfirm = false;
@@ -57,13 +56,6 @@
     showLeaveConfirm = false;
   }
 
-  function copyCode(e) {
-    if (e) e.stopPropagation();
-    navigator.clipboard.writeText(shareUrl);
-    copied = true;
-    setTimeout(() => (copied = false), 2000);
-  }
-
   function copyUrl(e) {
     if (e) e.stopPropagation();
     navigator.clipboard.writeText(shareUrl);
@@ -96,40 +88,8 @@
 </script>
 
 <div class="top-bar">
-  <!-- Room code and share -->
+  <!-- Share -->
   <div class="room-section">
-    {#if isHousemaster || hasHostView || roomMode !== "quiz"}
-      <span class="code" on:click={copyCode} role="button" tabindex="0"
-        >{roomCode}</span
-      >
-    {/if}
-    <button
-      class="icon-btn"
-      class:active={copied}
-      on:click={copyCode}
-      title="Copy link"
-    >
-      {#if copied}
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-        >
-          <polyline points="20 6 9 17 4 12" />
-        </svg>
-      {:else}
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-        >
-          <rect x="9" y="9" width="13" height="13" rx="2" />
-          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-        </svg>
-      {/if}
-    </button>
     <button class="icon-btn" on:click={toggleQRCode} title="Share QR">
       <svg
         viewBox="0 0 24 24"
@@ -439,21 +399,6 @@
     display: flex;
     align-items: center;
     gap: 4px;
-  }
-
-  .code {
-    font-family: "Courier New", monospace;
-    font-weight: 600;
-    font-size: 0.85rem;
-    color: #667eea;
-    cursor: pointer;
-    padding: 2px 6px;
-    border-radius: 4px;
-    transition: background 0.2s;
-  }
-
-  .code:hover {
-    background: rgba(102, 126, 234, 0.2);
   }
 
   .icon-btn {
@@ -834,10 +779,6 @@
       right: 8px;
       padding: 5px 8px;
       gap: 4px;
-    }
-
-    .code {
-      font-size: 0.75rem;
     }
 
     .icon-btn,
