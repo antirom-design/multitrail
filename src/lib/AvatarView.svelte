@@ -13,14 +13,10 @@
   // Local character state
   let myPosition = 50;
   let myDirection = 1;
+  let myFloor = 0;
 
   // All player positions (keyed by sessionId)
   let playerPositions = {};
-
-  // Host auto-walk state
-  let hostWalkTarget = 75;
-  let hostWalkPaused = false;
-  let hostWalkInterval;
 
   // Jump state
   let jumpingPlayers = new Set();
@@ -99,9 +95,9 @@
 
   // === Event handlers ===
   function handlePlayerMove(e) {
-    const { sessionId: senderId, position, direction } = e.detail;
+    const { sessionId: senderId, position, direction, floor = 0 } = e.detail;
     if (senderId !== sessionId) {
-      playerPositions = { ...playerPositions, [senderId]: { position, direction } };
+      playerPositions = { ...playerPositions, [senderId]: { position, direction, floor } };
     }
   }
 
@@ -109,9 +105,13 @@
     const { sessionId: senderId } = e.detail;
     if (senderId !== sessionId) {
       jumpingPlayers = new Set([...jumpingPlayers, senderId]);
-      const jumperPos = (allPositions[senderId] || {}).position || 50;
-      const hostPos = (allPositions[hostSessionId] || {}).position || 50;
-      if (Math.abs(jumperPos - hostPos) < 8) {
+      const jumperData = allPositions[senderId] || {};
+      const hostData = allPositions[hostSessionId] || {};
+      const jumperPos = jumperData.position || 50;
+      const jumperFloor = jumperData.floor || 0;
+      const hostPos = hostData.position || 50;
+      const hostFloor = hostData.floor || 0;
+      if (jumperFloor === hostFloor && Math.abs(jumperPos - hostPos) < 8) {
         starPlayers = new Set([...starPlayers, senderId]);
         setTimeout(() => {
           starPlayers = new Set([...starPlayers].filter(id => id !== senderId));
@@ -131,43 +131,20 @@
     // Broadcast customization after connection is established
     setTimeout(broadcastCustomization, 1000);
 
-    // Host auto-walk
-    if (isHousemaster) {
-      hostWalkTarget = 65 + Math.random() * 20;
-      myDirection = 1;
-      hostWalkInterval = setInterval(() => {
-        if (hostWalkPaused) return;
-        const speed = 0.4;
-        if (myDirection > 0) {
-          myPosition = Math.min(95, myPosition + speed);
-          if (myPosition >= hostWalkTarget) {
-            hostWalkPaused = true;
-            setTimeout(() => {
-              hostWalkTarget = 15 + Math.random() * 20;
-              myDirection = -1;
-              hostWalkPaused = false;
-            }, 1000 + Math.random() * 1000);
-          }
-        } else {
-          myPosition = Math.max(5, myPosition - speed);
-          if (myPosition <= hostWalkTarget) {
-            hostWalkPaused = true;
-            setTimeout(() => {
-              hostWalkTarget = 65 + Math.random() * 20;
-              myDirection = 1;
-              hostWalkPaused = false;
-            }, 1000 + Math.random() * 1000);
-          }
-        }
-        broadcastMove();
-      }, 150);
+    // Keyboard controls (arrow keys)
+    function handleKeydown(e) {
+      if (e.key === 'ArrowLeft') { e.preventDefault(); moveLeft(); }
+      if (e.key === 'ArrowRight') { e.preventDefault(); moveRight(); }
+      if (e.key === 'ArrowUp' || e.key === ' ') { e.preventDefault(); jump(); }
     }
+
+    window.addEventListener('keydown', handleKeydown);
 
     return () => {
       window.removeEventListener('playerMove', handlePlayerMove);
       window.removeEventListener('playerJump', handlePlayerJump);
       window.removeEventListener('playerCustomize', handlePlayerCustomize);
-      if (hostWalkInterval) clearInterval(hostWalkInterval);
+      window.removeEventListener('keydown', handleKeydown);
     };
   });
 
@@ -175,8 +152,10 @@
     jumpingPlayers = new Set([...jumpingPlayers, sessionId]);
     if (websocket) websocket.sendPlayerJump();
     const myPos = myPosition;
-    const hostPos = (allPositions[hostSessionId] || {}).position || 50;
-    if (Math.abs(myPos - hostPos) < 8) {
+    const hostData = allPositions[hostSessionId] || {};
+    const hostPos = hostData.position || 50;
+    const hostFloor = hostData.floor || 0;
+    if (myFloor === hostFloor && Math.abs(myPos - hostPos) < 8) {
       starPlayers = new Set([...starPlayers, sessionId]);
       setTimeout(() => {
         starPlayers = new Set([...starPlayers].filter(id => id !== sessionId));
@@ -189,31 +168,39 @@
 
   function moveLeft() {
     myDirection = -1;
-    myPosition = Math.max(5, myPosition - 8);
+    myPosition -= 8;
+    if (myPosition < 5) {
+      myPosition = 95;
+      myFloor = (myFloor + 1) % 3;
+    }
     broadcastMove();
   }
 
   function moveRight() {
     myDirection = 1;
-    myPosition = Math.min(95, myPosition + 8);
+    myPosition += 8;
+    if (myPosition > 95) {
+      myPosition = 5;
+      myFloor = (myFloor - 1 + 3) % 3;
+    }
     broadcastMove();
   }
 
   function broadcastMove() {
     if (websocket) {
-      websocket.sendPlayerMove(myPosition, myDirection);
+      websocket.sendPlayerMove(myPosition, myDirection, myFloor);
     }
   }
 
   // Reactive merged positions so Svelte re-renders on local movement
   $: allPositions = (() => {
     const merged = { ...playerPositions };
-    merged[sessionId] = { position: myPosition, direction: myDirection };
+    merged[sessionId] = { position: myPosition, direction: myDirection, floor: myFloor };
     return merged;
   })();
 
   function getPlayerPosition(playerId) {
-    return allPositions[playerId] || { position: 50, direction: 1 };
+    return allPositions[playerId] || { position: 50, direction: 1, floor: 0 };
   }
 
   // Consistent color: use index in the users array (same order for everyone)
@@ -266,7 +253,7 @@
               class:facing-left={pos.direction < 0}
               class:is-me={isMe}
               class:jumping={jumpingPlayers.has(player.id)}
-              style="left: {pos.position}%; --char-color: {shirt}; --skin-color: {skin}; --eye-w: {eye.w}px; --eye-h: {eye.h}px; --eye-r: {eye.r}; --eye-color: {eye.color}; --pants-color: {pants};"
+              style="left: {pos.position}%; bottom: {25 + (pos.floor || 0) * 110}px; --char-color: {shirt}; --skin-color: {skin}; --eye-w: {eye.w}px; --eye-h: {eye.h}px; --eye-r: {eye.r}; --eye-color: {eye.color}; --pants-color: {pants};"
             >
               <div class="pixel-char">
                 {#if hair.style !== 'none'}
@@ -283,16 +270,16 @@
             </div>
           {/each}
         {/if}
+        <div class="floor-platform" style="bottom: 220px"></div>
+        <div class="floor-platform" style="bottom: 110px"></div>
         <div class="ground"></div>
       </div>
 
-      {#if !isHousemaster && !hasHostView}
-        <div class="controls">
-          <button class="arrow-btn" on:click={moveLeft}>◀</button>
-          <button class="arrow-btn jump-btn" on:click={jump}>⬆</button>
-          <button class="arrow-btn" on:click={moveRight}>▶</button>
-        </div>
-      {/if}
+      <div class="controls">
+        <button class="arrow-btn" on:click={moveLeft}>◀</button>
+        <button class="arrow-btn jump-btn" on:click={jump}>⬆</button>
+        <button class="arrow-btn" on:click={moveRight}>▶</button>
+      </div>
 
     </div>
   </div>
@@ -376,7 +363,7 @@
 
   .players-arena {
     position: relative;
-    height: 220px;
+    height: 360px;
     background: linear-gradient(180deg, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.4) 100%);
     border-radius: 16px;
     overflow: hidden;
@@ -391,6 +378,14 @@
     background: linear-gradient(180deg, #2a2a4a 0%, #1a1a2e 100%);
   }
 
+  .floor-platform {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(180deg, rgba(100, 100, 160, 0.4) 0%, rgba(40, 40, 80, 0.2) 100%);
+  }
+
   .empty-arena {
     height: 100%;
     display: flex;
@@ -401,9 +396,8 @@
 
   .arena-character {
     position: absolute;
-    bottom: 25px;
     transform: translateX(-50%);
-    transition: left 0.15s ease-out;
+    transition: left 0.15s ease-out, bottom 0.2s ease-out;
   }
 
   .arena-character.facing-left {
@@ -520,7 +514,7 @@
     filter: drop-shadow(0 0 6px rgba(102, 126, 234, 0.5));
   }
 
-  /* === CONTROLS (students only) === */
+  /* === CONTROLS === */
   .controls {
     display: flex;
     justify-content: center;

@@ -367,8 +367,8 @@ export function createWebSocket(existingSessionId = null) {
   }
 
   // Avatar mode methods
-  function sendPlayerMove(position, direction) {
-    send('playerMove', { position, direction })
+  function sendPlayerMove(position, direction, floor = 0) {
+    send('playerMove', { position, direction, floor })
   }
 
   function sendPlayerJump() {
